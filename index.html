@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CSV Quizzer</title>
+  <style>
+    body { font-family: sans-serif; background: #f9fafb; color: #111; margin: 0; padding: 20px; }
+    .container { max-width: min(1280px, 95vw); margin: auto; }
+    .panel { margin-bottom: 20px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
+    .card { padding: 20px; background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; }
+    .q { font-size: 20px; margin-bottom: 10px; }
+    .feedback { font-weight: bold; margin-top: 10px; }
+    .good { color: green; }
+    .bad { color: red; }
+    .stats { margin-top: 10px; color: #555; }
+    input[type="text"] { padding: 8px; width: calc(100% - 100px); margin-right: 10px; }
+    button { padding: 8px 12px; }
+    .empty-msg { margin-top: 15px; font-size: 16px; color: #333; }
+    .summary { margin-top: 15px; font-size: 14px; color: #333; }
+    .summary ul { padding-left: 20px; }
+    .summary .summary-mono { white-space: pre; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#f6f8fa; border:1px solid #eee; border-radius:6px; padding:12px; max-width: 100%; overflow-x: auto; overflow-y: hidden; font-size: 13px; }
+    .hint { margin-top: 8px; color: #666; font-size: 12px; }
+    kbd { background: #eee; border: 1px solid #ccc; border-radius: 3px; padding: 1px 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  @media (min-width: 1200px) { .summary .summary-mono { overflow: hidden; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <input id="file" type="file" accept=".csv,text/csv" />
+      <button id="startBtn" disabled>Start Quiz</button>
+      <div id="meta">No file loaded.</div>
+    </div>
+
+    <div class="card" id="quiz" style="display:none">
+      <div class="q" id="question"></div>
+      <input id="answer" type="text" placeholder="Type the answer…" />
+      <button id="submitBtn">Check</button>
+      <button id="skipBtn">Skip</button>
+      <div class="feedback" id="feedback"></div>
+      <div class="hint">Hotkeys: <kbd>Enter</kbd> to check • <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to skip • <kbd>Shift</kbd> + <kbd>Enter</kbd> to end &amp; summary</div>
+      <div class="empty-msg" id="emptyMsg" style="display:none"></div>
+      <div class="summary" id="summary" style="display:none"></div>
+    </div>
+
+    <div class="stats" id="stats">Loaded: 0 • Correct: 0 • Attempts: 0 • Streak: 0</div>
+  </div>
+
+  <script>
+    // Robust CSV parser that supports quoted fields and commas inside quotes
+    function parseCSV(text) {
+      const rows = [];
+      let row = [];
+      let field = '';
+      let i = 0;
+      let inQuotes = false;
+      while (i < text.length) {
+        const c = text[i];
+        if (inQuotes) {
+          if (c === '"') {
+            const next = text[i + 1];
+            if (next === '"') { field += '"'; i += 2; continue; } // escaped quote
+            inQuotes = false; i++; continue;
+          } else {
+            field += c; i++; continue;
+          }
+        } else {
+          if (c === '"') { inQuotes = true; i++; continue; }
+          if (c === ',') { row.push(field); field = ''; i++; continue; }
+          if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+          if (c === '\r') { if (text[i + 1] === '\n') { i += 2; } else { i++; } row.push(field); rows.push(row); row = []; field = ''; continue; }
+          field += c; i++;
+        }
+      }
+      row.push(field);
+      if (!(row.length === 1 && row[0] === '' && rows.length > 0)) rows.push(row);
+      return rows;
+    }
+
+    const $ = (id) => document.getElementById(id);
+    const fileInput = $('file');
+    const startBtn = $('startBtn');
+    const meta = $('meta');
+
+    const quiz = $('quiz');
+    const question = $('question');
+    const answer = $('answer');
+    const feedback = $('feedback');
+    const submitBtn = $('submitBtn');
+    const skipBtn = $('skipBtn');
+    const statsEl = $('stats');
+    const emptyMsg = $('emptyMsg');
+    const summaryEl = $('summary');
+
+    let cards = [];
+    let current = null;
+    let unused = [];
+
+    let incorrectLog = [];
+    let lastRoundMistakeIds = [];
+    let mistakesOnly = false;
+
+    const state = { correct: 0, attempts: 0, streak: 0 };
+
+    function updateStats() {
+      statsEl.textContent = `Loaded: ${cards.length} • Correct: ${state.correct} • Attempts: ${state.attempts} • Streak: ${state.streak}`;
+    }
+
+    // Case-sensitive; ignore ALL whitespace differences (spaces, tabs, newlines)
+    function normalizeForCompare(s) {
+      /* Example: "a | b" === "a|b" === "a\n|\tb" */
+      return s.replace(/\s+/g, '');
+    }
+
+    function pickNextCard() {
+      if (!unused.length) return null;
+      const idx = Math.floor(Math.random() * unused.length);
+      const card = unused[idx];
+      unused.splice(idx, 1);
+      return card;
+    }
+
+    function showCard(card) {
+      current = card;
+      if (!card) return;
+      question.textContent = card.q;
+      answer.value = '';
+      feedback.textContent = '';
+    }
+
+    function showSummary() {
+      function esc(s){ return String(s).replace(/[&<>"]/g, function(ch){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]); }); }
+      let html = `<strong>Deck complete!</strong><br/>Correct: ${state.correct} / ${state.attempts}<br/>`;
+      if (incorrectLog.length) {
+        const rows = incorrectLog.map(item => ({ q: item.q, given: item.given, a: item.a }));
+        const leftPlain = rows.map(r => `Your answer: ${r.given}`);
+        const maxLeft = leftPlain.reduce((m, s) => Math.max(m, s.length), 0);
+        const lines = rows.map((r, i) => {
+          const plain = leftPlain[i];
+          const pad = ' '.repeat(Math.max(0, maxLeft - plain.length));
+          const leftHtml = `<span class="bad">Your answer:</span> ${esc(r.given)}`;
+          const rightHtml = `<span class="good">Correct:</span> ${esc(r.a)}`;
+          return `${leftHtml}${pad} | ${rightHtml} — <em>${esc(r.q)}</em>`;
+        });
+        html += `<p>Incorrect answers:</p><pre class="summary-mono">${lines.join('\n')}</pre>`;
+      }
+      summaryEl.innerHTML = html;
+      summaryEl.style.display = '';
+    }
+
+    function endOfRound() {
+      const idSet = new Set(incorrectLog.map(x => x.id));
+      lastRoundMistakeIds = Array.from(idSet);
+      showSummary();
+      emptyMsg.style.display = '';
+      const hasMistakes = lastRoundMistakeIds.length > 0;
+      emptyMsg.innerHTML = `Deck exhausted. <button id="cycleBtn">Cycle Again?</button> ${hasMistakes ? '<button id="mistakesBtn">Review Mistakes</button>' : ''}`;
+
+      document.getElementById('cycleBtn').onclick = () => {
+        unused = [...cards];
+        incorrectLog = [];
+        mistakesOnly = false;
+        summaryEl.style.display = 'none';
+        emptyMsg.style.display = 'none';
+        nextCard();
+      };
+
+      if (hasMistakes) {
+        document.getElementById('mistakesBtn').onclick = () => {
+          const mistakeSet = new Set(lastRoundMistakeIds);
+          const mistakeDeck = cards.filter(c => mistakeSet.has(c.id));
+          unused = [...mistakeDeck];
+          mistakesOnly = true;
+          incorrectLog = [];
+          summaryEl.style.display = 'none';
+          emptyMsg.style.display = 'none';
+          nextCard();
+        };
+      }
+    }
+
+    function nextCard() {
+      if (!cards.length) return;
+      const card = pickNextCard();
+      if (!card) {
+        question.textContent = '';
+        feedback.textContent = '';
+        endOfRound();
+        return;
+      }
+      emptyMsg.style.display = 'none';
+      summaryEl.style.display = 'none';
+      showCard(card);
+    }
+
+    function onSubmit() {
+      if (!current) return;
+      const user = answer.value;
+      const ok = normalizeForCompare(user) === normalizeForCompare(current.a);
+      state.attempts++;
+      if (ok) {
+        state.correct++; state.streak++;
+        feedback.textContent = 'Correct!';
+        feedback.className = 'feedback good';
+      } else {
+        state.streak = 0;
+        feedback.textContent = `Incorrect. Expected: ${current.a}`;
+        feedback.className = 'feedback bad';
+        incorrectLog.push({ id: current.id, q: current.q, a: current.a, given: user });
+      }
+      updateStats();
+      setTimeout(nextCard, 800);
+    }
+
+    function loadFromText(text, name='file') {
+      const rows = parseCSV(text);
+      // Assume: no header row; everything case sensitive
+      cards = rows.map((r, idx) => ({ id: idx, q: String(r[0]).trim(), a: String(r[1]).trim() })).filter(x => x.q && x.a);
+      unused = [...cards];
+      incorrectLog = [];
+      lastRoundMistakeIds = [];
+      mistakesOnly = false;
+      meta.textContent = cards.length ? `Loaded ${cards.length} cards from ${name}` : 'No valid rows found.';
+      startBtn.disabled = cards.length === 0;
+      updateStats();
+    }
+
+    // Auto-load selected CSV
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) { meta.textContent = 'Choose a CSV file first.'; return; }
+      const reader = new FileReader();
+      reader.onload = (e) => loadFromText(e.target.result, f.name);
+      reader.readAsText(f);
+    });
+
+    startBtn.addEventListener('click', () => {
+      if (!cards.length) return;
+      quiz.style.display = '';
+      nextCard();
+      answer.focus();
+    });
+
+    submitBtn.addEventListener('click', onSubmit);
+    skipBtn.addEventListener('click', nextCard);
+    answer.addEventListener('keydown', (e) => {
+      // Shift + Enter -> End quiz early & show summary
+      if (e.key === 'Enter' && e.shiftKey) {
+        e.preventDefault();
+        question.textContent = '';
+        feedback.textContent = '';
+        endOfRound();
+        return;
+      }
+      // Ctrl/Cmd + Enter -> Skip
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); nextCard(); return; }
+      // Enter -> Check
+      if (e.key === 'Enter') { e.preventDefault(); onSubmit(); }
+    });
+  </script>
+</body>
+</html>
