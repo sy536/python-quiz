@@ -122,6 +122,8 @@
     let activeCategories = new Set();
 
     const state = { correct: 0, attempts: 0, streak: 0 };
+    let roundCorrect = 0;
+    let roundAttempts = 0;
 
     function updateStats() {
       statsEl.textContent = `Loaded: ${cards.length} • Available: ${unused.length} • Correct: ${state.correct} • Attempts: ${state.attempts} • Streak: ${state.streak}`;
@@ -151,7 +153,10 @@
 
     function showSummary() {
       function esc(s){ return String(s).replace(/[&<>"]/g, function(ch){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]); }); }
-      let html = `<strong>Deck complete!</strong><br/>Correct: ${state.correct} / ${state.attempts}<br/>`;
+      let html = `<strong>Deck complete!</strong><br/>`;
+      html += `Round Score: ${roundCorrect} / ${roundAttempts}<br/>`;
+      html += `Cumulative Score: ${state.correct} / ${state.attempts}<br/>`;
+
       if (incorrectLog.length) {
         const rows = incorrectLog.map(item => ({ q: item.q, given: item.given, a: item.a }));
         const leftPlain = rows.map(r => `Your answer: ${r.given}`);
@@ -178,6 +183,8 @@
       emptyMsg.innerHTML = `Deck exhausted. <button id="cycleBtn">Cycle Again?</button> ${hasMistakes ? '<button id="mistakesBtn">Review Mistakes</button>' : ''}`;
 
       document.getElementById('cycleBtn').onclick = () => {
+        roundCorrect = 0;
+        roundAttempts = 0;
         prepareDeck();
         incorrectLog = [];
         mistakesOnly = false;
@@ -217,8 +224,10 @@
       const user = answer.value;
       const ok = normalizeForCompare(user) === normalizeForCompare(current.a);
       state.attempts++;
+      roundAttempts++;
       if (ok) {
         state.correct++; state.streak++;
+        roundCorrect++;
         feedback.textContent = 'Correct!';
         feedback.className = 'feedback good';
       } else {
@@ -296,6 +305,9 @@
       mistakesOnly = false;
       meta.textContent = cards.length ? `Loaded ${cards.length} cards from ${name}` : 'No valid rows found.';
       
+      roundCorrect = 0;
+      roundAttempts = 0;
+
       renderCategoryFilters();
       updateStats();
     }
