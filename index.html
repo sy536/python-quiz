@@ -22,6 +22,9 @@
     .summary .summary-mono { white-space: pre; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#f6f8fa; border:1px solid #eee; border-radius:6px; padding:12px; max-width: 100%; overflow-x: auto; overflow-y: hidden; font-size: 13px; }
     .hint { margin-top: 8px; color: #666; font-size: 12px; }
     kbd { background: #eee; border: 1px solid #ccc; border-radius: 3px; padding: 1px 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    .category-filters { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .category-filters label { display: inline-flex; align-items: center; cursor: pointer; }
+    .category-filters input[type="checkbox"] { margin-right: 5px; }
   @media (min-width: 1200px) { .summary .summary-mono { overflow: hidden; } }
   </style>
 </head>
@@ -31,6 +34,17 @@
       <input id="file" type="file" accept=".csv,text/csv" />
       <button id="startBtn" disabled>Start Quiz</button>
       <div id="meta">No file loaded.</div>
+    </div>
+    
+    <div class="panel" id="category-panel" style="display:none">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h4>Filter by Category</h4>
+            <div>
+                <button id="toggle-all-btn">Toggle All</button>
+                <button id="toggle-none-btn">Toggle None</button>
+            </div>
+        </div>
+        <div id="category-filters" class="category-filters"></div>
     </div>
 
     <div class="card" id="quiz" style="display:none">
@@ -82,6 +96,10 @@
     const fileInput = $('file');
     const startBtn = $('startBtn');
     const meta = $('meta');
+    const categoryPanel = $('category-panel');
+    const categoryFiltersEl = $('category-filters');
+    const toggleAllBtn = $('toggle-all-btn');
+    const toggleNoneBtn = $('toggle-none-btn');
 
     const quiz = $('quiz');
     const question = $('question');
@@ -100,11 +118,13 @@
     let incorrectLog = [];
     let lastRoundMistakeIds = [];
     let mistakesOnly = false;
+    let allCategories = new Set();
+    let activeCategories = new Set();
 
     const state = { correct: 0, attempts: 0, streak: 0 };
 
     function updateStats() {
-      statsEl.textContent = `Loaded: ${cards.length} • Correct: ${state.correct} • Attempts: ${state.attempts} • Streak: ${state.streak}`;
+      statsEl.textContent = `Loaded: ${cards.length} • Available: ${unused.length} • Correct: ${state.correct} • Attempts: ${state.attempts} • Streak: ${state.streak}`;
     }
 
     // Case-sensitive; ignore ALL whitespace differences (spaces, tabs, newlines)
@@ -158,7 +178,7 @@
       emptyMsg.innerHTML = `Deck exhausted. <button id="cycleBtn">Cycle Again?</button> ${hasMistakes ? '<button id="mistakesBtn">Review Mistakes</button>' : ''}`;
 
       document.getElementById('cycleBtn').onclick = () => {
-        unused = [...cards];
+        prepareDeck();
         incorrectLog = [];
         mistakesOnly = false;
         summaryEl.style.display = 'none';
@@ -181,9 +201,7 @@
     }
 
     function nextCard() {
-      if (!cards.length) return;
-      const card = pickNextCard();
-      if (!card) {
+      if (!unused.length) {
         question.textContent = '';
         feedback.textContent = '';
         endOfRound();
@@ -191,7 +209,7 @@
       }
       emptyMsg.style.display = 'none';
       summaryEl.style.display = 'none';
-      showCard(card);
+      showCard(pickNextCard());
     }
 
     function onSubmit() {
@@ -212,17 +230,73 @@
       updateStats();
       setTimeout(nextCard, 800);
     }
+    
+    function prepareDeck() {
+      unused = cards.filter(card => activeCategories.has(card.category));
+      startBtn.disabled = unused.length === 0;
+      updateStats();
+    }
+
+    function renderCategoryFilters() {
+      categoryFiltersEl.innerHTML = '';
+      if (allCategories.size === 0) {
+        categoryPanel.style.display = 'none';
+        return;
+      }
+      categoryPanel.style.display = 'block';
+      allCategories.forEach(category => {
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.dataset.category = category;
+        
+        checkbox.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            activeCategories.add(e.target.dataset.category);
+          } else {
+            activeCategories.delete(e.target.dataset.category);
+          }
+          prepareDeck();
+        });
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(category));
+        categoryFiltersEl.appendChild(label);
+      });
+      prepareDeck();
+    }
+    
+    function toggleAll() {
+      document.querySelectorAll('#category-filters input[type="checkbox"]').forEach(checkbox => {
+        checkbox.checked = true;
+      });
+      activeCategories = new Set(allCategories);
+      prepareDeck();
+    }
+
+    function toggleNone() {
+      document.querySelectorAll('#category-filters input[type="checkbox"]').forEach(checkbox => {
+        checkbox.checked = false;
+      });
+      activeCategories.clear();
+      prepareDeck();
+    }
 
     function loadFromText(text, name='file') {
       const rows = parseCSV(text);
-      // Assume: no header row; everything case sensitive
-      cards = rows.map((r, idx) => ({ id: idx, q: String(r[0]).trim(), a: String(r[1]).trim() })).filter(x => x.q && x.a);
-      unused = [...cards];
+      cards = rows.map((r, idx) => ({ id: idx, q: String(r[0]).trim(), a: String(r[1]).trim(), category: r[2] ? String(r[2]).trim() : 'Uncategorized' })).filter(x => x.q && x.a);
+      
+      allCategories.clear();
+      cards.forEach(card => allCategories.add(card.category));
+      activeCategories = new Set(allCategories);
+
       incorrectLog = [];
       lastRoundMistakeIds = [];
       mistakesOnly = false;
       meta.textContent = cards.length ? `Loaded ${cards.length} cards from ${name}` : 'No valid rows found.';
-      startBtn.disabled = cards.length === 0;
+      
+      renderCategoryFilters();
       updateStats();
     }
 
@@ -236,11 +310,14 @@
     });
 
     startBtn.addEventListener('click', () => {
-      if (!cards.length) return;
+      if (!unused.length) return;
       quiz.style.display = '';
       nextCard();
       answer.focus();
     });
+    
+    toggleAllBtn.addEventListener('click', toggleAll);
+    toggleNoneBtn.addEventListener('click', toggleNone);
 
     submitBtn.addEventListener('click', onSubmit);
     skipBtn.addEventListener('click', nextCard);
