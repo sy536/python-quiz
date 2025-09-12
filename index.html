@@ -225,6 +225,7 @@
     let cards = [];
     let current = null;
     let unused = [];
+    let fileName = 'updated_quiz_deck.csv';
 
     let incorrectLog = [];
     let lastRoundMistakeIds = [];
@@ -311,7 +312,7 @@
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
       link.setAttribute("href", url);
-      link.setAttribute("download", "updated_quiz_deck.csv");
+      link.setAttribute("download", fileName);
       link.style.display = "none";
       document.body.appendChild(link);
       link.click();
@@ -475,6 +476,7 @@
     }
 
     function loadFromText(text, name='file') {
+      fileName = name;
       const rows = parseCSV(text);
       cards = rows.map((r, idx) => ({ 
         id: idx, 
