@@ -6,7 +6,7 @@
   <title>CSV Quizzer</title>
   <style>
     body { font-family: sans-serif; background: #f9fafb; color: #111; margin: 0; padding: 20px; }
-    .container { max-w.95vw); margin: auto; }
+    .container { max-width: min(1280px, 95vw); margin: auto; }
     .panel { margin-bottom: 20px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
     .card { padding: 20px; background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; }
     .q { font-size: 20px; margin-bottom: 10px; }
@@ -35,13 +35,15 @@
   .edit-button-red { background-color: #f44336; color: white; }
   .edit-button-red:hover { background-color: #d32f2f; }
   .edit-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  .start-btn-green { background-color: #4CAF50; color: white; border: none; }
+  .start-btn-green:hover { background-color: #45a049; }
   </style>
 </head>
 <body>
   <div class="container">
     <div id="main-panel" class="panel">
       <input id="file" type="file" accept=".csv,text/csv" />
-      <button id="startBtn" disabled>Start Quiz</button>
+      <button id="startBtn" class="start-btn-green" disabled>Start Quiz</button>
       <button id="editCsvBtn" style="display:none">Edit CSV</button>
       <div id="meta">No file loaded.</div>
     </div>
@@ -232,10 +234,6 @@
       questionEl.textContent = card.q;
       answerEl.value = '';
       feedbackEl.textContent = '';
-      editFields.style.display = 'none';
-      submitBtn.style.display = 'inline';
-      skipBtn.style.display = 'inline';
-      editQuestionBtn.style.display = 'inline';
     }
 
     function downloadCSV(cardsToDownload) {
