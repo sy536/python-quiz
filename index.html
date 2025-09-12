@@ -6,7 +6,7 @@
   <title>CSV Quizzer</title>
   <style>
     body { font-family: sans-serif; background: #f9fafb; color: #111; margin: 0; padding: 20px; }
-    .container { max-width: min(1280px, 95vw); margin: auto; }
+    .container { max-w.95vw); margin: auto; }
     .panel { margin-bottom: 20px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
     .card { padding: 20px; background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; }
     .q { font-size: 20px; margin-bottom: 10px; }
@@ -28,7 +28,7 @@
   @media (min-width: 1200px) { .summary .summary-mono { overflow: hidden; } }
 
   .csv-editor-table { width: 100%; border-collapse: collapse; }
-  .csv-editor-table th, .csv-editor-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  .csv-editor-table th, .csv-editor-table td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
   .csv-editor-table th { background-color: #f2f2f2; }
   .csv-editor-table textarea, .csv-editor-table input { width: 100%; min-width: 100px; padding: 4px; border: 1px solid #ccc; box-sizing: border-box; resize: vertical; }
   .csv-editor-table .cell-priority { width: 50px; }
@@ -93,6 +93,7 @@
       <h4>Edit Flashcards</h4>
       <div id="editorTable"></div>
       <div style="margin-top: 15px; display: flex; gap: 10px;">
+        <button id="addCardBtn">Add New Card</button>
         <button id="saveAndDownloadBtn">Save & Download</button>
         <button id="cancelEditBtn">Back to Quiz</button>
       </div>
@@ -142,7 +143,7 @@
     const categoryFiltersEl = $('category-filters');
     const toggleAllBtn = $('toggle-all-btn');
     const toggleNoneBtn = $('toggle-none-btn');
-
+    
     const quizPanel = $('quiz-panel');
     const questionEl = $('question');
     const answerEl = $('answer');
@@ -158,6 +159,7 @@
     
     const editorPanel = $('editor-panel');
     const editorTable = $('editorTable');
+    const addCardBtn = $('addCardBtn');
     const saveAndDownloadBtn = $('saveAndDownloadBtn');
     const cancelEditBtn = $('cancelEditBtn');
 
@@ -439,7 +441,7 @@
       table.className = 'csv-editor-table';
       
       const header = table.createTHead().insertRow();
-      ['Question', 'Answer', 'Category', 'Priority'].forEach(text => {
+      ['Question', 'Answer', 'Category', 'Priority', 'Actions'].forEach(text => {
         const th = document.createElement('th');
         th.textContent = text;
         header.appendChild(th);
@@ -464,9 +466,33 @@
           input.dataset.field = field;
           cell.appendChild(input);
         });
+
+        const actionCell = row.insertCell();
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.onclick = () => deleteCard(index);
+        actionCell.appendChild(deleteBtn);
       });
       editorTable.innerHTML = '';
       editorTable.appendChild(table);
+    }
+    
+    function addCard() {
+      cards.push({
+        id: cards.length,
+        q: '',
+        a: '',
+        category: 'Uncategorized',
+        priority: 1
+      });
+      renderEditorTable();
+    }
+
+    function deleteCard(index) {
+        cards.splice(index, 1);
+        // Re-map IDs after deletion
+        cards.forEach((card, i) => card.id = i);
+        renderEditorTable();
     }
 
     function saveAndDownloadEditedCSV() {
@@ -511,6 +537,7 @@
         showPanel(editorPanel);
     });
     
+    addCardBtn.addEventListener('click', addCard);
     saveAndDownloadBtn.addEventListener('click', saveAndDownloadEditedCSV);
     cancelEditBtn.addEventListener('click', () => {
       showPanel(mainPanel);
