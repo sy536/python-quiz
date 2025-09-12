@@ -1,0 +1,127 @@
+"Import the module for binary search and insertion","import bisect","Bisect",10
+"In sorted list l, insert position of elem","bisect.bisect(l,elem)","Bisect",1
+"In sorted list l, insert elem into the list to keep it sorted","bisect.insort(l,elem)","Bisect",1
+"Get the number of bits in n","n.bit_length()","Bit Manipulation",1
+"Bitwise and","&","Bit Manipulation",1
+"Bitwise or","|","Bit Manipulation",1
+"Bitwise xor","^","Bit Manipulation",1
+"Bitwise not","~","Bit Manipulation",1
+"Left shift (multiply by 2)","<<","Bit Manipulation",1
+"Right shift (floor divide by 2)",">>","Bit Manipulation",1
+"Check if kth bit of n is set","n & (1 << k)","Bit Manipulation",1
+"lowest set bit of n","n & -n","Bit Manipulation",1
+"a is some int. a^a","0","Bit Manipulation",1
+"a is some int. a^0","a","Bit Manipulation",1
+"Import counter","from collections import Counter","Counter",9
+"Get count of 'a' from counter c, 0 if missing","c['a']","Counter",1
+"Y or N: c = Counter(""hello""). c[""a""] raises KeyError","N","Counter",1
+"Add counts of ""apple"" to counter c","c.update(""apple"")","Counter",1
+"Remove counts of ""app"" from counter c","c.subtract(""app"")","Counter",1
+"Y or N: c.subtract() can result in negative counts","Y","Counter",2
+"Y or N: Counters allow for subset < superset > operations","Y","Counter",1
+"Y or N: Counters allow for .get() for safe access","N","Counter",1
+"Combine the counts of counters a and b","a + b","Counter",1
+"Take the minimum of counters a and b","a & b","Counter",1
+"Is counter a a subset of counter b?","a < b","Counter",1
+"In counter c, set count of 'a' to 4","c['a']=4","Counter",1
+"In counter c, has key ""a"" been seen?","""a"" in c","Counter",1
+"Import deques","from collections import deque","Deque",9
+"Initialize empty deque","deque()","Deque",1
+"Turn list l into deque","deque(l)","Deque",1
+"Initialize empty deque with a bounded length of 5","deque(maxlen=5)","Deque",1
+"Add x to the right of deque d","d.append(x)","Deque",1
+"Add x to the left of deque d","d.appendleft(x)","Deque",1
+"Add list l to the right of deque d","d.extend(l)","Deque",1
+"Add list l to the left of deque d","d.extendleft(l)","Deque",1
+"Pop from the right of deque d","d.pop()","Deque",1
+"Pop from the left of deque d","d.popleft()","Deque",1
+"Peek rightmost element of deque d","d[-1]","Deque",1
+"Peek leftmost element of deque d","d[0]","Deque",1
+"Initialize an empty hashmap","{}","Dict",1
+"Create a hashmap ""a"":1","{""a"":1}","Dict",1
+"Convert pairs = [(""a"", 1), (""b"", 2)] to hashmap","dict(pairs)","Dict",1
+"Create a hashmap from keys = [""x"", ""y"", ""z""] with values all 0","dict.fromkeys(keys, 0)","Dict",1
+"Return d[""a""] if it exists, otherwise 0","d.get(""a"",0)","Dict",1
+"Remove d[""a""] if it exists, otherwise error","del d[""a""]","Dict",1
+"Return d[""a""] and remove it if it exists, otherwise return None","d.pop(""a"",None)","Dict",1
+"Remove and return last k,v from hashmap d","d.popitem()","Dict",1
+"In hashmap d, delete everything","d.clear()","Dict",1
+"Is ""a"" a key in hashmap d?","""a"" in d","Dict",1
+"In hashmap d, list of keys","d.keys()","Dict",1
+"In hashmap d, list of values","d.values()","Dict",1
+"In hashmap d, list of key value pairs","d.items()","Dict",1
+"In hashmap d, return value of ""a"" if it exists, otherwise set d[""a""] to 0 and return 0.","d.setdefault(""a"",0)","Dict",1
+"Copy hashmap d","d.copy()","Dict",1
+"import dictionaries with default values","from collections import defaultdict","Dict",9
+"default dict for integers","defaultdict(int)","Dict",1
+"default dict for lists","defaultdict(list)","Dict",1
+"default dict for sets","defaultdict(set)","Dict",1
+"Import min heaps","import heapq","Heap",1
+"Turn list l into min heap","heapq.heapify(l)","Heap",1
+"Add e to min heap ""heap""","heapq.heappush(heap,e)","Heap",1
+"Pop smallest element of min heap ""heap""","heapq.heappop(heap)","Heap",1
+"Push item then pop and return smallest from min heap ""heap""","heapq.heappushpop(heap,item)","Heap",1
+"Pop smallest then push item from min heap ""heap""","heapq.heapreplace(heap,item)","Heap",1
+"Peek smallest from min heap ""heap""","heap[0]","Heap",1
+"Return k smallest from min heap ""heap""","heapq.nsmallest(k,heap)","Heap",1
+"Return k largest from min heap ""heap""","heapq.nlargest(k,heap)","Heap",1
+"Number of elements in [l,r]","r-l+1","Index Gymnastics",1
+"Index to vacate upon adding index i to sliding window of k","i-k","Index Gymnastics",1
+"Index of middle of array of length n. If n is even, return right middle.","n//2","Index Gymnastics",1
+"Index of middle of array of length n. If n is even, return left middle","(n-1)//2","Index Gymnastics",1
+"i'th element from the end in array of length n","n-i","Index Gymnastics",1
+"First index of a k length subarray ending at i","i-k+1","Index Gymnastics",1
+"1-d index of (r,c) where there are n columns","r*n + c","Index Gymnastics",1
+"1-d index i to r,c where there are n columns. use divmod.","divmod(i,n)","Index Gymnastics",1
+"Mirror index of index i in array of length n","n-1-i","Index Gymnastics",1
+"You are on day i. A day is forgotten after f days. What is the first day not forgotten?","i-f+1","Index Gymnastics",1
+"You are on day i. A day is activated after d days. What is the last activated day?","i-d","Index Gymnastics",1
+"You are on day i. A day is forgotten after f days. What is the last forgotten day?","i-f","Index Gymnastics",1
+"d indices after i","i+d","Index Gymnastics",1
+"[0,1,2,3,4]","list(range(5))","List",1
+"Sort list l by a custom function x : x + 1","l.sort(key=lambda x:x+1)","List",1
+"Get the first k characters of l reversed","l[k-1::-1]","List",1
+"l = [1,2,3]. Return [1,2,3,4]","l + [4]","List",1
+"What does l.append(4) return?","None","List",1
+"Index of 3 in list l","l.indexOf(3)","List",1
+"Infinity as a float number","float('inf')","Misc",1
+"lambda function mapping x to x+1","lambda x : x+1","Misc",1
+"Floor of (a/b)","a//b","Misc",1
+"Ceiling of (a/b)","-(-a//b)","Misc",1
+"Import cache","from functools import cache","Misc",9
+"Initialize an empty set","set()","Set",1
+"Create a set from list [1, 2, 3]","set([1, 2, 3])","Set",1
+"Convert set `s` to a list","list(s)","Set",1
+"Insert element `4` to set `s`","s.add(4)","Set",1
+"Insert multiple elements `5` and `6` to set `s`","s.update([5, 6])","Set",1
+"Delete element `2` from set `s`; error if absent","s.remove(2)","Set",1
+"Delete element `10` from set `s`; no error if absent","s.discard(10)","Set",1
+"Delete and return an arbitrary element from `s`","s.pop()","Set",1
+"Delete all elements from set `s`","s.clear()","Set",1
+"$3 \in a$?","3 in s","Set",1
+"$a \cup b$ (using an operator)","a | b","Set",1
+"$a \cap b$ (using an operator)","a & b","Set",1
+"$a \setminus b$ (using an operator)","a - b","Set",1
+"$a\cup b \setminus a \cap b$ (using an operator)","a ^ b","Set",1
+"$a \subseteq b$? (operator)","a <= b","Set",1
+"$a \subset b$ ? (operator)","a < b","Set",1
+"Copy set `a`","a.copy()","Set",1
+"Index of first occurence of `""o""` in string `s`","s.find(""o"")","String",1
+"Index of last occurence of `""o""` in string `s`","s.rfind(""o"")","String",1
+"Split string `s` on whitespace","s.split()","String",1
+"Number of occurrences of `""o""` in string s","s.count(""o"")","String",1
+"`l = [""a"",""b"",""c""]`. Output `""a-b-c""`","""-"".join(l)","String",1
+"Output string version of `num`","str(num)","String",1
+"Output lowercase version of string `s`","s.lower()","String",1
+"Output uppercase version of string `s`","s.upper()","String",1
+"Is string `s` alphebetical?","s.isalpha()","String",1
+"Is string `s` lower case?","s.islower()","String",1
+"Is string `s` upper case?","s.isupper()","String",1
+"Is string `s` digits?","s.isdigit()","String",1
+"Substitute all occurences of `""a""` with `""b""` in string `s`","s.replace(""a"",""b"")","String",1
+"Is string `s` alphanumeric?","s.isalnum()","String",1
+"Remove leading and trailing spaces from string `s`","s.strip()","String",1
+"Remove leading spaces from string `s`","s.lstrip()","String",1
+"Remove trailing spaces from string `s`","s.rstrip()","String",1
+"Get ascii code of `""a""`","ord(""a"")","String",1
+"Get character corresponding with ascii code 97","char(97)","String",1
