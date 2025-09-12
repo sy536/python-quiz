@@ -96,6 +96,7 @@
       <div id="editorTable"></div>
       <div style="margin-top: 15px; display: flex; gap: 10px;">
         <button id="addCardBtn">Add New Card</button>
+        <button id="sortCategoryBtn">Sort by Category</button>
         <button id="saveAndDownloadBtn">Save & Download</button>
         <button id="cancelEditBtn">Back to Quiz</button>
       </div>
@@ -162,6 +163,7 @@
     const editorPanel = $('editor-panel');
     const editorTable = $('editorTable');
     const addCardBtn = $('addCardBtn');
+    const sortCategoryBtn = $('sortCategoryBtn');
     const saveAndDownloadBtn = $('saveAndDownloadBtn');
     const cancelEditBtn = $('cancelEditBtn');
 
@@ -433,6 +435,23 @@
       renderCategoryFilters();
       prepareDeck();
     }
+    
+    function getEditedCardsFromTable() {
+      const updatedCards = [];
+      const rows = document.querySelectorAll('#editorTable table tbody tr');
+      rows.forEach((row, index) => {
+          const inputs = row.querySelectorAll('textarea, input');
+          const updatedCard = {
+              id: cards[index].id,
+              q: inputs[0].value,
+              a: inputs[1].value,
+              category: inputs[2].value,
+              priority: Math.max(1, parseFloat(inputs[3].value) || 1)
+          };
+          updatedCards.push(updatedCard);
+      });
+      return updatedCards;
+    }
 
     function renderEditorTable() {
       const table = document.createElement('table');
@@ -484,6 +503,14 @@
         priority: 1
       });
       renderEditorTable();
+      prepareDeck();
+    }
+    
+    function sortCardsByCategory() {
+        cards = getEditedCardsFromTable();
+        cards.sort((a, b) => a.category.localeCompare(b.category));
+        renderEditorTable();
+        prepareDeck(); // Ensure the quiz deck is properly prepared after sorting
     }
 
     function deleteCard(index) {
@@ -491,22 +518,11 @@
         // Re-map IDs after deletion
         cards.forEach((card, i) => card.id = i);
         renderEditorTable();
+        prepareDeck();
     }
 
     function saveAndDownloadEditedCSV() {
-        const updatedCards = [];
-        const rows = document.querySelectorAll('#editorTable table tbody tr');
-        rows.forEach((row, index) => {
-            const inputs = row.querySelectorAll('textarea, input');
-            const updatedCard = {
-                id: cards[index].id,
-                q: inputs[0].value,
-                a: inputs[1].value,
-                category: inputs[2].value,
-                priority: Math.max(1, parseFloat(inputs[3].value) || 1)
-            };
-            updatedCards.push(updatedCard);
-        });
+        const updatedCards = getEditedCardsFromTable();
         cards = updatedCards;
         downloadCSV(cards);
         // After saving, reload the main view with the updated cards
@@ -536,6 +552,7 @@
     });
     
     addCardBtn.addEventListener('click', addCard);
+    sortCategoryBtn.addEventListener('click', sortCardsByCategory);
     saveAndDownloadBtn.addEventListener('click', saveAndDownloadEditedCSV);
     cancelEditBtn.addEventListener('click', () => {
       showPanel(mainPanel);
