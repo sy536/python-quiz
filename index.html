@@ -168,6 +168,35 @@
       feedback.textContent = '';
     }
 
+    function downloadUpdatedCSV() {
+      const mistakeIds = new Set(incorrectLog.map(log => log.id));
+      const updatedCards = cards.map(card => {
+        if (mistakeIds.has(card.id)) {
+          card.priority *= 2;
+        }
+        return card;
+      });
+
+      const csvRows = updatedCards.map(card => {
+        const q = `"${String(card.q).replace(/"/g, '""')}"`;
+        const a = `"${String(card.a).replace(/"/g, '""')}"`;
+        const category = `"${String(card.category).replace(/"/g, '""')}"`;
+        const priority = card.priority;
+        return [q, a, category, priority].join(',');
+      });
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", "updated_quiz_deck.csv");
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
     function showSummary() {
       function esc(s){ return String(s).replace(/[&<>"]/g, function(ch){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]); }); }
       let html = `<strong>Deck complete!</strong><br/>`;
@@ -187,8 +216,10 @@
         });
         html += `<p>Incorrect answers:</p><pre class="summary-mono">${lines.join('\n')}</pre>`;
       }
+      html += `<button id="downloadBtn">Download Updated CSV</button>`;
       summaryEl.innerHTML = html;
       summaryEl.style.display = '';
+      document.getElementById('downloadBtn').onclick = downloadUpdatedCSV;
     }
 
     function endOfRound() {
