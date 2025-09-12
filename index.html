@@ -32,6 +32,9 @@
   .csv-editor-table th { background-color: #f2f2f2; }
   .csv-editor-table textarea, .csv-editor-table input { width: 100%; min-width: 100px; padding: 4px; border: 1px solid #ccc; box-sizing: border-box; resize: vertical; }
   .csv-editor-table .cell-priority { width: 50px; }
+  .edit-button-red { background-color: #f44336; color: white; }
+  .edit-button-red:hover { background-color: #d32f2f; }
+  .edit-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -57,8 +60,29 @@
     <div id="quiz-panel" class="card" style="display:none">
       <div class="q" id="question"></div>
       <input id="answer" type="text" placeholder="Type the answer…" />
-      <button id="submitBtn">Check</button>
-      <button id="skipBtn">Skip</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+        <div>
+          <button id="submitBtn">Check</button>
+          <button id="skipBtn">Skip</button>
+        </div>
+        <div>
+          <button id="editQuestionBtn" class="edit-button-red">Edit Question</button>
+        </div>
+      </div>
+      <div class="edit-fields" id="editFields" style="display:none">
+        <label>
+          Question:
+          <textarea id="editQuestion" rows="3"></textarea>
+        </label>
+        <label>
+          Answer:
+          <textarea id="editAnswer" rows="2"></textarea>
+        </label>
+        <div style="display: flex; gap: 10px;">
+          <button id="updateCardBtn">Update</button>
+          <button id="cancelEditBtnQuiz">Cancel</button>
+        </div>
+      </div>
       <div class="feedback" id="feedback"></div>
       <div class="hint">Hotkeys: <kbd>Enter</kbd> to check • <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to skip • <kbd>Shift</kbd> + <kbd>Enter</kbd> to end &amp; summary</div>
       <div class="empty-msg" id="emptyMsg" style="display:none"></div>
@@ -120,11 +144,17 @@
     const toggleNoneBtn = $('toggle-none-btn');
 
     const quizPanel = $('quiz-panel');
-    const question = $('question');
-    const answer = $('answer');
-    const feedback = $('feedback');
+    const questionEl = $('question');
+    const answerEl = $('answer');
+    const feedbackEl = $('feedback');
     const submitBtn = $('submitBtn');
     const skipBtn = $('skipBtn');
+    const editQuestionBtn = $('editQuestionBtn');
+    const editFields = $('editFields');
+    const editQuestionEl = $('editQuestion');
+    const editAnswerEl = $('editAnswer');
+    const updateCardBtn = $('updateCardBtn');
+    const cancelEditBtnQuiz = $('cancelEditBtnQuiz');
     
     const editorPanel = $('editor-panel');
     const editorTable = $('editorTable');
@@ -197,9 +227,13 @@
     function showCard(card) {
       current = card;
       if (!card) return;
-      question.textContent = card.q;
-      answer.value = '';
-      feedback.textContent = '';
+      questionEl.textContent = card.q;
+      answerEl.value = '';
+      feedbackEl.textContent = '';
+      editFields.style.display = 'none';
+      submitBtn.style.display = 'inline';
+      skipBtn.style.display = 'inline';
+      editQuestionBtn.style.display = 'inline';
     }
 
     function downloadCSV(cardsToDownload) {
@@ -290,8 +324,8 @@
 
     function nextCard() {
       if (!unused.length) {
-        question.textContent = '';
-        feedback.textContent = '';
+        questionEl.textContent = '';
+        feedbackEl.textContent = '';
         endOfRound();
         return;
       }
@@ -302,20 +336,20 @@
 
     function onSubmit() {
       if (!current) return;
-      const user = answer.value;
+      const user = answerEl.value;
       const ok = normalizeForCompare(user) === normalizeForCompare(current.a);
       state.attempts++;
       roundAttempts++;
       if (ok) {
         state.correct++; state.streak++;
         roundCorrect++;
-        feedback.textContent = 'Correct!';
-        feedback.className = 'feedback good';
+        feedbackEl.textContent = 'Correct!';
+        feedbackEl.className = 'feedback good';
         current.priority = Math.max(1, current.priority - 1);
       } else {
         state.streak = 0;
-        feedback.textContent = `Incorrect. Expected: ${current.a}`;
-        feedback.className = 'feedback bad';
+        feedbackEl.textContent = `Incorrect. Expected: ${current.a}`;
+        feedbackEl.className = 'feedback bad';
         incorrectLog.push({ id: current.id, q: current.q, a: current.a, given: user });
       }
       updateStats();
@@ -469,7 +503,7 @@
       if (!unused.length) return;
       showPanel(quizPanel);
       nextCard();
-      answer.focus();
+      answerEl.focus();
     });
     
     editCsvBtn.addEventListener('click', () => {
@@ -487,12 +521,33 @@
 
     submitBtn.addEventListener('click', onSubmit);
     skipBtn.addEventListener('click', nextCard);
-    answer.addEventListener('keydown', (e) => {
+    editQuestionBtn.addEventListener('click', () => {
+      if (!current) return;
+      editFields.style.display = 'flex';
+      editQuestionEl.value = current.q;
+      editAnswerEl.value = current.a;
+      editQuestionEl.focus();
+      submitBtn.style.display = 'none';
+      skipBtn.style.display = 'none';
+      editQuestionBtn.style.display = 'none';
+    });
+    updateCardBtn.addEventListener('click', () => {
+      if (!current) return;
+      current.q = editQuestionEl.value;
+      current.a = editAnswerEl.value;
+      showCard(current);
+      answerEl.focus();
+    });
+    cancelEditBtnQuiz.addEventListener('click', () => {
+      showCard(current);
+      answerEl.focus();
+    });
+    answerEl.addEventListener('keydown', (e) => {
       // Shift + Enter -> End quiz early & show summary
       if (e.key === 'Enter' && e.shiftKey) {
         e.preventDefault();
-        question.textContent = '';
-        feedback.textContent = '';
+        questionEl.textContent = '';
+        feedbackEl.textContent = '';
         endOfRound();
         return;
       }
