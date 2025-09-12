@@ -324,7 +324,7 @@
       lastRoundMistakeIds = Array.from(idSet);
       if (summaryEl) showSummary();
       if (emptyMsg) emptyMsg.style.display = '';
-      const hasMistakes = lastRoundMistakeIds.length > 0;
+      const hasMistakes = lastRoundRoundMistakeIds.length > 0;
       if (emptyMsg) emptyMsg.innerHTML = `Deck exhausted. <button id="cycleBtn">Cycle Again?</button> ${hasMistakes ? '<button id="mistakesBtn">Review Mistakes</button>' : ''}`;
 
       const cycleBtn = document.getElementById('cycleBtn');
@@ -609,10 +609,20 @@
       current.a = editAnswerEl.value;
       showCard(current);
       answerEl.focus();
+      // Restore quiz buttons and hide edit fields
+      editFields.style.display = 'none';
+      if (submitBtn) submitBtn.style.display = '';
+      if (skipBtn) skipBtn.style.display = '';
+      if (editQuestionBtn) editQuestionBtn.style.display = '';
     });
     cancelEditBtnQuiz.addEventListener('click', () => {
       showCard(current);
       answerEl.focus();
+      // Restore quiz buttons and hide edit fields
+      editFields.style.display = 'none';
+      if (submitBtn) submitBtn.style.display = '';
+      if (skipBtn) skipBtn.style.display = '';
+      if (editQuestionBtn) editQuestionBtn.style.display = '';
     });
     answerEl.addEventListener('keydown', (e) => {
       // Shift + Enter -> End quiz early & show summary
