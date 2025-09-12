@@ -25,6 +25,19 @@
     .category-filters { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; }
     .category-filters label { display: inline-flex; align-items: center; cursor: pointer; }
     .category-filters input[type="checkbox"] { margin-right: 5px; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #f4f4f4;
+      padding: 2px 4px;
+      border-radius: 4px;
+      color: maroon;
+    }
+    pre code {
+      display: block;
+      white-space: pre;
+      padding: 12px;
+      overflow-x: auto;
+    }
   @media (min-width: 1200px) { .summary .summary-mono { overflow: hidden; } }
 
   .csv-editor-table { width: 100%; border-collapse: collapse; }
@@ -38,6 +51,7 @@
   .start-btn-green { background-color: #4CAF50; color: white; border: none; }
   .start-btn-green:hover { background-color: #45a049; }
   </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 </head>
 <body>
   <div class="container">
@@ -88,6 +102,7 @@
       <div class="feedback" id="feedback"></div>
       <div class="hint">Hotkeys: <kbd>Enter</kbd> to check • <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to skip • <kbd>Shift</kbd> + <kbd>Enter</kbd> to end &amp; summary</div>
       <div class="empty-msg" id="emptyMsg" style="display:none"></div>
+      <div class="summary" id="summary" style="display:none"></div>
     </div>
 
     <div id="editor-panel" class="panel" style="display:none">
@@ -104,6 +119,9 @@
     <div class="stats" id="stats">Loaded: 0 • Correct: 0 • Attempts: 0 • Streak: 0</div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
   <script>
     // Robust CSV parser that supports quoted fields and commas inside quotes
     function parseCSV(text) {
@@ -232,7 +250,15 @@
     function showCard(card) {
       current = card;
       if (!card) return;
-      questionEl.textContent = card.q;
+
+      questionEl.innerHTML = marked.parse(card.q);
+      renderMathInElement(questionEl, {
+        delimiters: [
+          {left: "$$", right: "$$", display: true},
+          {left: "$", right: "$", display: false}
+        ]
+      });
+
       answerEl.value = '';
       feedbackEl.textContent = '';
     }
@@ -259,6 +285,7 @@
     }
 
     function showSummary() {
+      if (!summaryEl) return;
       function esc(s){ return String(s).replace(/[&<>"]/g, function(ch){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]); }); }
       let html = `<strong>Deck complete!</strong><br/>`;
       html += `Round Score: ${roundCorrect} / ${roundAttempts}<br/>`;
@@ -295,29 +322,33 @@
     function endOfRound() {
       const idSet = new Set(incorrectLog.map(x => x.id));
       lastRoundMistakeIds = Array.from(idSet);
-      showSummary();
-      emptyMsg.style.display = '';
+      if (summaryEl) showSummary();
+      if (emptyMsg) emptyMsg.style.display = '';
       const hasMistakes = lastRoundMistakeIds.length > 0;
-      emptyMsg.innerHTML = `Deck exhausted. <button id="cycleBtn">Cycle Again?</button> ${hasMistakes ? '<button id="mistakesBtn">Review Mistakes</button>' : ''}`;
+      if (emptyMsg) emptyMsg.innerHTML = `Deck exhausted. <button id="cycleBtn">Cycle Again?</button> ${hasMistakes ? '<button id="mistakesBtn">Review Mistakes</button>' : ''}`;
 
-      document.getElementById('cycleBtn').onclick = () => {
-        roundCorrect = 0;
-        roundAttempts = 0;
-        prepareDeck();
-        incorrectLog = [];
-        summaryEl.style.display = 'none';
-        emptyMsg.style.display = 'none';
-        nextCard();
-      };
+      const cycleBtn = document.getElementById('cycleBtn');
+      if (cycleBtn) {
+        cycleBtn.onclick = () => {
+          roundCorrect = 0;
+          roundAttempts = 0;
+          prepareDeck();
+          incorrectLog = [];
+          if (summaryEl) summaryEl.style.display = 'none';
+          if (emptyMsg) emptyMsg.style.display = 'none';
+          nextCard();
+        };
+      }
 
-      if (hasMistakes) {
-        document.getElementById('mistakesBtn').onclick = () => {
+      const mistakesBtn = document.getElementById('mistakesBtn');
+      if (hasMistakes && mistakesBtn) {
+        mistakesBtn.onclick = () => {
           const mistakeSet = new Set(lastRoundMistakeIds);
           const mistakeDeck = cards.filter(c => mistakeSet.has(c.id));
           unused = [...mistakeDeck];
           incorrectLog = [];
-          summaryEl.style.display = 'none';
-          emptyMsg.style.display = 'none';
+          if (summaryEl) summaryEl.style.display = 'none';
+          if (emptyMsg) emptyMsg.style.display = 'none';
           nextCard();
         };
       }
@@ -325,13 +356,13 @@
 
     function nextCard() {
       if (!unused.length) {
-        questionEl.textContent = '';
-        feedbackEl.textContent = '';
+        if (questionEl) questionEl.textContent = '';
+        if (feedbackEl) feedbackEl.textContent = '';
         endOfRound();
         return;
       }
-      emptyMsg.style.display = 'none';
-      summaryEl.style.display = 'none';
+      if (emptyMsg) emptyMsg.style.display = 'none';
+      if (summaryEl) summaryEl.style.display = 'none';
       showCard(pickNextCard());
     }
 
@@ -568,9 +599,9 @@
       editQuestionEl.value = current.q;
       editAnswerEl.value = current.a;
       editQuestionEl.focus();
-      submitBtn.style.display = 'none';
-      skipBtn.style.display = 'none';
-      editQuestionBtn.style.display = 'none';
+      if (submitBtn) submitBtn.style.display = 'none';
+      if (skipBtn) skipBtn.style.display = 'none';
+      if (editQuestionBtn) editQuestionBtn.style.display = 'none';
     });
     updateCardBtn.addEventListener('click', () => {
       if (!current) return;
@@ -587,8 +618,8 @@
       // Shift + Enter -> End quiz early & show summary
       if (e.key === 'Enter' && e.shiftKey) {
         e.preventDefault();
-        questionEl.textContent = '';
-        feedbackEl.textContent = '';
+        if (questionEl) questionEl.textContent = '';
+        if (feedbackEl) feedbackEl.textContent = '';
         endOfRound();
         return;
       }
