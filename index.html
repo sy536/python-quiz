@@ -26,17 +26,24 @@
     .category-filters label { display: inline-flex; align-items: center; cursor: pointer; }
     .category-filters input[type="checkbox"] { margin-right: 5px; }
   @media (min-width: 1200px) { .summary .summary-mono { overflow: hidden; } }
+
+  .csv-editor-table { width: 100%; border-collapse: collapse; }
+  .csv-editor-table th, .csv-editor-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  .csv-editor-table th { background-color: #f2f2f2; }
+  .csv-editor-table textarea, .csv-editor-table input { width: 100%; min-width: 100px; padding: 4px; border: 1px solid #ccc; box-sizing: border-box; resize: vertical; }
+  .csv-editor-table .cell-priority { width: 50px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="panel">
+    <div id="main-panel" class="panel">
       <input id="file" type="file" accept=".csv,text/csv" />
       <button id="startBtn" disabled>Start Quiz</button>
+      <button id="editCsvBtn" style="display:none">Edit CSV</button>
       <div id="meta">No file loaded.</div>
     </div>
     
-    <div class="panel" id="category-panel" style="display:none">
+    <div id="category-panel" class="panel" style="display:none">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h4>Filter by Category</h4>
             <div>
@@ -47,7 +54,7 @@
         <div id="category-filters" class="category-filters"></div>
     </div>
 
-    <div class="card" id="quiz" style="display:none">
+    <div id="quiz-panel" class="card" style="display:none">
       <div class="q" id="question"></div>
       <input id="answer" type="text" placeholder="Type the answer…" />
       <button id="submitBtn">Check</button>
@@ -56,6 +63,15 @@
       <div class="hint">Hotkeys: <kbd>Enter</kbd> to check • <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to skip • <kbd>Shift</kbd> + <kbd>Enter</kbd> to end &amp; summary</div>
       <div class="empty-msg" id="emptyMsg" style="display:none"></div>
       <div class="summary" id="summary" style="display:none"></div>
+    </div>
+
+    <div id="editor-panel" class="panel" style="display:none">
+      <h4>Edit Flashcards</h4>
+      <div id="editorTable"></div>
+      <div style="margin-top: 15px; display: flex; gap: 10px;">
+        <button id="saveAndDownloadBtn">Save & Download</button>
+        <button id="cancelEditBtn">Back to Quiz</button>
+      </div>
     </div>
 
     <div class="stats" id="stats">Loaded: 0 • Correct: 0 • Attempts: 0 • Streak: 0</div>
@@ -95,18 +111,26 @@
     const $ = (id) => document.getElementById(id);
     const fileInput = $('file');
     const startBtn = $('startBtn');
+    const editCsvBtn = $('editCsvBtn');
     const meta = $('meta');
+    const mainPanel = $('main-panel');
     const categoryPanel = $('category-panel');
     const categoryFiltersEl = $('category-filters');
     const toggleAllBtn = $('toggle-all-btn');
     const toggleNoneBtn = $('toggle-none-btn');
 
-    const quiz = $('quiz');
+    const quizPanel = $('quiz-panel');
     const question = $('question');
     const answer = $('answer');
     const feedback = $('feedback');
     const submitBtn = $('submitBtn');
     const skipBtn = $('skipBtn');
+    
+    const editorPanel = $('editor-panel');
+    const editorTable = $('editorTable');
+    const saveAndDownloadBtn = $('saveAndDownloadBtn');
+    const cancelEditBtn = $('cancelEditBtn');
+
     const statsEl = $('stats');
     const emptyMsg = $('emptyMsg');
     const summaryEl = $('summary');
@@ -117,13 +141,23 @@
 
     let incorrectLog = [];
     let lastRoundMistakeIds = [];
-    let mistakesOnly = false;
     let allCategories = new Set();
     let activeCategories = new Set();
 
     const state = { correct: 0, attempts: 0, streak: 0 };
     let roundCorrect = 0;
     let roundAttempts = 0;
+
+    function showPanel(panelToShow) {
+        const panels = [mainPanel, categoryPanel, quizPanel, editorPanel];
+        panels.forEach(panel => {
+            if (panel.id === panelToShow.id) {
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        });
+    }
 
     function updateStats() {
       statsEl.textContent = `Loaded: ${cards.length} • Available: ${unused.length} • Correct: ${state.correct} • Attempts: ${state.attempts} • Streak: ${state.streak}`;
@@ -168,16 +202,8 @@
       feedback.textContent = '';
     }
 
-    function downloadUpdatedCSV() {
-      const mistakeIds = new Set(incorrectLog.map(log => log.id));
-      const updatedCards = cards.map(card => {
-        if (mistakeIds.has(card.id)) {
-          card.priority *= 2;
-        }
-        return card;
-      });
-
-      const csvRows = updatedCards.map(card => {
+    function downloadCSV(cardsToDownload) {
+      const csvRows = cardsToDownload.map(card => {
         const q = `"${String(card.q).replace(/"/g, '""')}"`;
         const a = `"${String(card.a).replace(/"/g, '""')}"`;
         const category = `"${String(card.category).replace(/"/g, '""')}"`;
@@ -216,10 +242,19 @@
         });
         html += `<p>Incorrect answers:</p><pre class="summary-mono">${lines.join('\n')}</pre>`;
       }
-      html += `<button id="downloadBtn">Download Updated CSV</button>`;
+      html += `<button id="downloadMistakesBtn">Download Updated CSV</button>`;
       summaryEl.innerHTML = html;
       summaryEl.style.display = '';
-      document.getElementById('downloadBtn').onclick = downloadUpdatedCSV;
+      document.getElementById('downloadMistakesBtn').onclick = () => {
+        const mistakeIds = new Set(incorrectLog.map(log => log.id));
+        const updatedCards = cards.map(card => {
+          if (mistakeIds.has(card.id)) {
+            card.priority *= 2;
+          }
+          return card;
+        });
+        downloadCSV(updatedCards);
+      };
     }
 
     function endOfRound() {
@@ -235,7 +270,6 @@
         roundAttempts = 0;
         prepareDeck();
         incorrectLog = [];
-        mistakesOnly = false;
         summaryEl.style.display = 'none';
         emptyMsg.style.display = 'none';
         nextCard();
@@ -246,7 +280,6 @@
           const mistakeSet = new Set(lastRoundMistakeIds);
           const mistakeDeck = cards.filter(c => mistakeSet.has(c.id));
           unused = [...mistakeDeck];
-          mistakesOnly = true;
           incorrectLog = [];
           summaryEl.style.display = 'none';
           emptyMsg.style.display = 'none';
@@ -278,7 +311,6 @@
         roundCorrect++;
         feedback.textContent = 'Correct!';
         feedback.className = 'feedback good';
-        // Decrement priority, with a floor of 1
         current.priority = Math.max(1, current.priority - 1);
       } else {
         state.streak = 0;
@@ -358,17 +390,73 @@
 
       incorrectLog = [];
       lastRoundMistakeIds = [];
-      mistakesOnly = false;
       meta.textContent = cards.length ? `Loaded ${cards.length} cards from ${name}` : 'No valid rows found.';
+      editCsvBtn.style.display = cards.length > 0 ? 'inline' : 'none';
       
       roundCorrect = 0;
       roundAttempts = 0;
 
       renderCategoryFilters();
-      updateStats();
+      prepareDeck();
     }
 
-    // Auto-load selected CSV
+    function renderEditorTable() {
+      const table = document.createElement('table');
+      table.className = 'csv-editor-table';
+      
+      const header = table.createTHead().insertRow();
+      ['Question', 'Answer', 'Category', 'Priority'].forEach(text => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        header.appendChild(th);
+      });
+
+      const tbody = table.createTBody();
+      cards.forEach((card, index) => {
+        const row = tbody.insertRow();
+        const fields = ['q', 'a', 'category', 'priority'];
+        fields.forEach(field => {
+          const cell = row.insertCell();
+          let input;
+          if (field === 'priority') {
+            input = document.createElement('input');
+            input.type = 'number';
+            input.value = card[field];
+          } else {
+            input = document.createElement('textarea');
+            input.value = card[field];
+          }
+          input.dataset.index = index;
+          input.dataset.field = field;
+          cell.appendChild(input);
+        });
+      });
+      editorTable.innerHTML = '';
+      editorTable.appendChild(table);
+    }
+
+    function saveAndDownloadEditedCSV() {
+        const updatedCards = [];
+        const rows = document.querySelectorAll('#editorTable table tbody tr');
+        rows.forEach((row, index) => {
+            const inputs = row.querySelectorAll('textarea, input');
+            const updatedCard = {
+                id: cards[index].id,
+                q: inputs[0].value,
+                a: inputs[1].value,
+                category: inputs[2].value,
+                priority: Math.max(1, parseFloat(inputs[3].value) || 1)
+            };
+            updatedCards.push(updatedCard);
+        });
+        cards = updatedCards;
+        downloadCSV(cards);
+        // After saving, reload the main view with the updated cards
+        prepareDeck();
+        showPanel(mainPanel);
+    }
+
+    // Event listeners
     fileInput.addEventListener('change', () => {
       const f = fileInput.files && fileInput.files[0];
       if (!f) { meta.textContent = 'Choose a CSV file first.'; return; }
@@ -379,11 +467,21 @@
 
     startBtn.addEventListener('click', () => {
       if (!unused.length) return;
-      quiz.style.display = '';
+      showPanel(quizPanel);
       nextCard();
       answer.focus();
     });
     
+    editCsvBtn.addEventListener('click', () => {
+        renderEditorTable();
+        showPanel(editorPanel);
+    });
+    
+    saveAndDownloadBtn.addEventListener('click', saveAndDownloadEditedCSV);
+    cancelEditBtn.addEventListener('click', () => {
+      showPanel(mainPanel);
+    });
+
     toggleAllBtn.addEventListener('click', toggleAll);
     toggleNoneBtn.addEventListener('click', toggleNone);
 
