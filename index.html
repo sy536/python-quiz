@@ -135,11 +135,28 @@
       return s.replace(/\s+/g, '');
     }
 
+    // Pick a card based on its priority
     function pickNextCard() {
       if (!unused.length) return null;
-      const idx = Math.floor(Math.random() * unused.length);
-      const card = unused[idx];
-      unused.splice(idx, 1);
+
+      // Calculate the total priority of all available cards
+      const totalPriority = unused.reduce((sum, card) => sum + card.priority, 0);
+
+      // Generate a random number between 0 and the total priority
+      let rand = Math.random() * totalPriority;
+
+      // Find the card to be selected
+      for (let i = 0; i < unused.length; i++) {
+        rand -= unused[i].priority;
+        if (rand <= 0) {
+          const card = unused[i];
+          unused.splice(i, 1);
+          return card;
+        }
+      }
+      
+      // Fallback in case of rounding errors, pick the last card
+      const card = unused.pop();
       return card;
     }
 
@@ -294,7 +311,13 @@
 
     function loadFromText(text, name='file') {
       const rows = parseCSV(text);
-      cards = rows.map((r, idx) => ({ id: idx, q: String(r[0]).trim(), a: String(r[1]).trim(), category: r[2] ? String(r[2]).trim() : 'Uncategorized' })).filter(x => x.q && x.a);
+      cards = rows.map((r, idx) => ({ 
+        id: idx, 
+        q: String(r[0]).trim(), 
+        a: String(r[1]).trim(), 
+        category: r[2] ? String(r[2]).trim() : 'Uncategorized', 
+        priority: (r[3] && !isNaN(parseFloat(r[3]))) ? parseFloat(r[3]) : 1 
+      })).filter(x => x.q && x.a);
       
       allCategories.clear();
       cards.forEach(card => allCategories.add(card.category));
