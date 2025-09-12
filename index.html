@@ -278,6 +278,8 @@
         roundCorrect++;
         feedback.textContent = 'Correct!';
         feedback.className = 'feedback good';
+        // Decrement priority, with a floor of 1
+        current.priority = Math.max(1, current.priority - 1);
       } else {
         state.streak = 0;
         feedback.textContent = `Incorrect. Expected: ${current.a}`;
