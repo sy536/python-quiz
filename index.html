@@ -135,7 +135,7 @@
       <div class="feedback" id="feedback"></div>
       <div class="hint">Hotkeys: <kbd>Enter</kbd> to check • <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to skip • <kbd>Shift</kbd> + <kbd>Enter</kbd> to end &amp; summary</div>
       <div class="empty-msg" id="emptyMsg" style="display:none"></div>
-      <div class="summary" id="summary" style="display:none"></div>
+    <div class="summary" id="summary" style="display:none"></div>
     </div>
 
     <div id="editor-panel" class="panel" style="display:none">
@@ -287,12 +287,14 @@
       if (!card) return;
 
       questionEl.innerHTML = marked.parse(card.q);
-      renderMathInElement(questionEl, {
-        delimiters: [
-          {left: "$$", right: "$$", display: true},
-          {left: "$", right: "$", display: false}
-        ]
-      });
+      if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(questionEl, {
+          delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "$", right: "$", display: false}
+          ]
+        });
+      }
 
       answerEl.value = '';
       feedbackEl.textContent = '';
@@ -413,14 +415,15 @@
         feedbackEl.textContent = 'Correct!';
         feedbackEl.className = 'feedback good';
         current.priority = Math.max(1, current.priority - 1);
+        nextCard(); // Move to the next card immediately
       } else {
         state.streak = 0;
         feedbackEl.textContent = `Incorrect. Expected: ${current.a}`;
         feedbackEl.className = 'feedback bad';
         incorrectLog.push({ id: current.id, q: current.q, a: current.a, given: user });
+        setTimeout(nextCard, 4000); // Wait 4 seconds before moving on
       }
       updateStats();
-      setTimeout(nextCard, 800);
     }
     
     function prepareDeck() {
@@ -554,23 +557,27 @@
         const previewDiv = document.createElement('div');
         previewDiv.className = 'question-preview';
         previewDiv.innerHTML = marked.parse(card.q);
-        renderMathInElement(previewDiv, {
-            delimiters: [
-                {left: "$$", right: "$$", display: true},
-                {left: "$", right: "$", display: false}
-            ]
-        });
+        if (typeof renderMathInElement !== 'undefined') {
+            renderMathInElement(previewDiv, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "$", right: "$", display: false}
+                ]
+            });
+        }
         previewCell.appendChild(previewDiv);
 
         // Live preview on input
         questionInput.addEventListener('input', () => {
           previewDiv.innerHTML = marked.parse(questionInput.value);
-          renderMathInElement(previewDiv, {
-              delimiters: [
-                  {left: "$$", right: "$$", display: true},
-                  {left: "$", right: "$", display: false}
-              ]
-          });
+          if (typeof renderMathInElement !== 'undefined') {
+              renderMathInElement(previewDiv, {
+                  delimiters: [
+                      {left: "$$", right: "$$", display: true},
+                      {left: "$", right: "$", display: false}
+                  ]
+              });
+          }
           autoResizeTextarea(questionInput); // Auto-resize on input
         });
 
@@ -703,12 +710,14 @@
       editQuestionEl.focus();
       // Render initial preview for the edit view
       editQuestionPreview.innerHTML = marked.parse(editQuestionEl.value);
-      renderMathInElement(editQuestionPreview, {
-          delimiters: [
-              {left: "$$", right: "$$", display: true},
-              {left: "$", right: "$", display: false}
-          ]
-      });
+      if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(editQuestionPreview, {
+            delimiters: [
+                {left: "$$", right: "$$", display: true},
+                {left: "$", right: "$", display: false}
+            ]
+        });
+      }
       if (submitBtn) submitBtn.style.display = 'none';
       if (skipBtn) skipBtn.style.display = 'none';
       if (editQuestionBtn) editQuestionBtn.style.display = 'none';
@@ -716,12 +725,14 @@
     // Live preview for the edit question textarea
     editQuestionEl.addEventListener('input', () => {
         editQuestionPreview.innerHTML = marked.parse(editQuestionEl.value);
-        renderMathInElement(editQuestionPreview, {
-            delimiters: [
-                {left: "$$", right: "$$", display: true},
-                {left: "$", right: "$", display: false}
-            ]
-        });
+        if (typeof renderMathInElement !== 'undefined') {
+            renderMathInElement(editQuestionPreview, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "$", right: "$", display: false}
+                ]
+            });
+        }
     });
     updateCardBtn.addEventListener('click', () => {
       if (!current) return;
