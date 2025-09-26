@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Loader</title>
+    <!-- Link to KaTeX CSS for LaTeX rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <style>
+        /* Minimal styling to center the content on the page */
+        body {
+            display: flex;
+            flex-direction: column; /* Stack elements vertically */
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f7f7f7;
+            font-family: sans-serif;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        /* Basic styling for the file input button */
+        input[type="file"]::file-selector-button {
+            font-family: sans-serif;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background-color: #f0f0f0;
+        }
+        /* Styling for the standard button */
+        button {
+            font-family: sans-serif;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+             background-color: #f0f0f0;
+        }
+        button:disabled {
+            cursor: not-allowed;
+            background-color: #eee;
+            color: #999;
+        }
+        #buttonContainer {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px; /* Space between buttons */
+            margin-top: 10px;
+        }
+        /* Styling for the results display area */
+        #resultContainer {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            border-radius: 8px;
+            text-align: left; /* Align text to the left for readability */
+            font-size: 1.1em;
+            color: #333;
+            max-width: 800px; /* Wider max-width for consistency */
+            width: 100%;
+            box-sizing: border-box;
+            word-wrap: break-word; /* Ensure long text wraps */
+        }
+        /* Styling for the reveal area */
+        #revealContainer {
+            margin-top: 10px;
+            padding: 15px;
+            border: 1px solid #cce5ff;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 0.9em;
+            color: #555;
+            max-width: 800px;
+            width: 100%;
+            box-sizing: border-box;
+            word-wrap: break-word;
+        }
+        /* Styling for the notes area */
+        #notesContainer {
+            margin-top: 10px;
+            padding: 15px;
+            border: 1px solid #ffeeba;
+            background-color: #fffcf5;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 0.9em;
+            color: #555;
+            max-width: 800px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .notes-editor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        #notesContainer textarea {
+            width: 100%;
+            height: 150px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 0.9em;
+            resize: vertical;
+        }
+        #notesPreview {
+            height: 150px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            overflow-y: auto;
+            resize: vertical;
+        }
+        #notesContainer button {
+            margin-top: 10px;
+        }
+        .reveal-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 8px;
+            align-items: start;
+        }
+        .reveal-grid strong {
+            font-weight: bold;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+    <input type="file" id="csvFileInput" accept=".csv, text/csv">
+    <div id="resultContainer">Awaiting CSV file...</div>
+    <div id="revealContainer" style="display: none;"></div>
+    <div id="notesContainer" style="display: none;"></div>
+
+    <div id="buttonContainer">
+        <button id="repeatBtn" disabled>Repeat Sample</button>
+        <button id="revealBtn" disabled>Reveal</button>
+        <button id="notesBtn" disabled>Notes</button>
+        <button id="saveCsvBtn" disabled>Save & Download CSV</button>
+    </div>
+
+    <!-- Scripts for Markdown and LaTeX rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <script>
+        const csvFileInput = document.getElementById('csvFileInput');
+        const resultContainer = document.getElementById('resultContainer');
+        const repeatBtn = document.getElementById('repeatBtn');
+        const revealBtn = document.getElementById('revealBtn');
+        const notesBtn = document.getElementById('notesBtn');
+        const saveCsvBtn = document.getElementById('saveCsvBtn');
+        const revealContainer = document.getElementById('revealContainer');
+        const notesContainer = document.getElementById('notesContainer');
+
+        let parsedData = []; // Store the parsed CSV data globally
+        let headerRow = ''; // Store the CSV header
+        let originalFileName = 'data.csv';
+        let lastSelectedCategory = null;
+        let lastChosenRow = null;
+
+        csvFileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            originalFileName = file.name;
+
+            if (!file) {
+                resultContainer.textContent = 'No file selected.';
+                repeatBtn.disabled = true;
+                revealBtn.disabled = true;
+                notesBtn.disabled = true;
+                saveCsvBtn.disabled = true;
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const text = e.target.result;
+                const allRows = text.split(/\r\n|\n/);
+                headerRow = allRows[0]; // Save the header
+                const dataRows = allRows.slice(1).filter(row => row.trim() !== '');
+
+                if (dataRows.length === 0) {
+                    resultContainer.textContent = 'CSV file has no data rows.';
+                    saveCsvBtn.disabled = false;
+                    return;
+                }
+                
+                parsedData = dataRows.map(row => parseCsvRow(row));
+                
+                repeatBtn.disabled = false; 
+                saveCsvBtn.disabled = false;
+                performSampling(); 
+            };
+
+            reader.onerror = (e) => {
+                resultContainer.textContent = 'Error reading file.';
+            };
+
+            reader.readAsText(file);
+        });
+
+        repeatBtn.addEventListener('click', performSampling);
+
+        revealBtn.addEventListener('click', () => {
+            if (lastSelectedCategory && lastChosenRow) {
+                const escapeHtml = (unsafe) => unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+                const column3Text = lastChosenRow.length > 2 ? lastChosenRow[2] : '[No data]';
+                revealContainer.innerHTML = `
+                    <div class="reveal-grid">
+                        <strong>Category:</strong> <span>${escapeHtml(lastSelectedCategory)}</span>
+                        <strong>Sub-Category:</strong> <span>${escapeHtml(column3Text)}</span>
+                    </div>
+                `;
+                revealContainer.style.display = 'block';
+            }
+        });
+
+        notesBtn.addEventListener('click', () => {
+            if (lastChosenRow) {
+                notesContainer.style.display = 'block';
+                const column1Text = lastChosenRow.length > 0 ? lastChosenRow[0] : '';
+                notesContainer.innerHTML = `
+                    <strong>Notes:</strong>
+                    <div class="notes-editor-grid">
+                        <textarea id="notesTextarea">${column1Text}</textarea>
+                        <div id="notesPreview"></div>
+                    </div>
+                    <button id="saveNotesBtn">Save Notes</button>
+                `;
+
+                const notesTextarea = document.getElementById('notesTextarea');
+                const notesPreview = document.getElementById('notesPreview');
+
+                const updatePreview = () => {
+                    notesPreview.innerHTML = marked.parse(notesTextarea.value);
+                    renderMathInElement(notesPreview, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false}
+                        ]
+                    });
+                };
+
+                notesTextarea.addEventListener('input', updatePreview);
+                updatePreview(); // Initial render
+
+                document.getElementById('saveNotesBtn').addEventListener('click', () => {
+                    const newNotes = notesTextarea.value;
+                    lastChosenRow[0] = newNotes; 
+                    const saveBtn = document.getElementById('saveNotesBtn');
+                    saveBtn.textContent = 'Saved!';
+                    setTimeout(() => { saveBtn.textContent = 'Save Notes'; }, 2000);
+                });
+            }
+        });
+
+        saveCsvBtn.addEventListener('click', () => {
+            const formatCsvField = (field) => {
+                const strField = String(field);
+                if (/[",\r\n]/.test(strField)) {
+                    return `"${strField.replace(/"/g, '""')}"`;
+                }
+                return strField;
+            };
+
+            const csvRows = parsedData.map(row => 
+                row.map(formatCsvField).join(',')
+            );
+            
+            const csvContent = [headerRow, ...csvRows].join('\r\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            const newFileName = `edited_${originalFileName}`;
+            link.setAttribute("download", newFileName);
+            
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        function parseCsvRow(rowString) {
+            const fields = [];
+            let currentField = '';
+            let inQuotedField = false;
+            for (let i = 0; i < rowString.length; i++) {
+                const char = rowString[i];
+                if (char === '"') {
+                    if (inQuotedField && rowString[i + 1] === '"') {
+                        currentField += '"';
+                        i++; 
+                    } else {
+                        inQuotedField = !inQuotedField;
+                    }
+                } else if (char === ',' && !inQuotedField) {
+                    fields.push(currentField);
+                    currentField = '';
+                } else {
+                    currentField += char;
+                }
+            }
+            fields.push(currentField);
+            return fields;
+        }
+
+        function performSampling() {
+            if (parsedData.length === 0) {
+                resultContainer.textContent = 'No data loaded to sample from.';
+                return;
+            }
+            
+            revealContainer.style.display = 'none';
+            notesContainer.style.display = 'none';
+            revealBtn.disabled = true;
+            notesBtn.disabled = true;
+
+            const categories = new Set(parsedData.map(columns => columns[1]).filter(Boolean));
+            const uniqueCategories = Array.from(categories);
+            if (uniqueCategories.length === 0) {
+                resultContainer.textContent = 'No valid categories found in the second column.';
+                return;
+            }
+
+            const selectedCategory = uniqueCategories[Math.floor(Math.random() * uniqueCategories.length)];
+            const matchingRows = parsedData.filter(columns => columns[1] === selectedCategory);
+            if (matchingRows.length === 0) {
+                resultContainer.textContent = `Error: No rows found for the selected category "${selectedCategory}".`;
+                return;
+            }
+            
+            const chosenRow = matchingRows[Math.floor(Math.random() * matchingRows.length)];
+            
+            lastSelectedCategory = selectedCategory;
+            lastChosenRow = chosenRow;
+            revealBtn.disabled = false;
+            notesBtn.disabled = false;
+
+            if (chosenRow.length > 3 && chosenRow[3]) {
+                const segments = chosenRow[3].split(',').map(s => s.trim()).filter(Boolean);
+                if (segments.length > 0) {
+                    const selectedSegment = segments[Math.floor(Math.random() * segments.length)];
+                    resultContainer.textContent = selectedSegment;
+                } else {
+                    resultContainer.textContent = `The 4th column for category "${selectedCategory}" has no valid segments.`;
+                }
+            } else {
+                resultContainer.textContent = `The chosen row in category "${selectedCategory}" has no data in the fourth column.`;
+            }
+        }
+    </script>
+
+</body>
+</html>
+
