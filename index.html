@@ -92,6 +92,14 @@
       <button id="startBtn" class="start-btn-green" disabled>Start Quiz</button>
       <button id="editCsvBtn" style="display:none">Edit CSV</button>
       <div id="meta">No file loaded.</div>
+
+      <div style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
+        <h4>Random Number Generator</h4>
+        <label for="maxNumber">Max Number:</label>
+        <input type="number" id="maxNumber" value="97" style="width: 80px; padding: 8px;">
+        <button id="generateBtn">Generate</button>
+        <div style="margin-top: 10px; font-size: 18px;">Result: <strong id="randomNumberResult">...</strong></div>
+      </div>
     </div>
     
     <div id="category-panel" class="panel" style="display:none">
@@ -221,6 +229,11 @@
     const statsEl = $('stats');
     const emptyMsg = $('emptyMsg');
     const summaryEl = $('summary');
+
+    // New element references for the random number generator
+    const maxNumberInput = $('maxNumber');
+    const generateBtn = $('generateBtn');
+    const randomNumberResult = $('randomNumberResult');
 
     let cards = [];
     let current = null;
@@ -694,6 +707,12 @@
     sortCategoryBtn.addEventListener('click', sortCardsByCategory);
     saveAndDownloadBtn.addEventListener('click', saveAndDownloadEditedCSV);
     cancelEditBtn.addEventListener('click', () => {
+      cards = getEditedCardsFromTable();
+      allCategories.clear();
+      cards.forEach(card => allCategories.add(card.category));
+      activeCategories = new Set(allCategories);
+      renderCategoryFilters();
+      prepareDeck();
       showPanel(mainPanel);
     });
 
@@ -766,6 +785,17 @@
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); nextCard(); return; }
       // Enter -> Check
       if (e.key === 'Enter') { e.preventDefault(); onSubmit(); }
+    });
+    
+    // New event listener for the random number generator button
+    generateBtn.addEventListener('click', () => {
+      const max = parseInt(maxNumberInput.value, 10);
+      if (isNaN(max) || max < 1) {
+        randomNumberResult.textContent = 'Invalid max number.';
+        return;
+      }
+      const randomNumber = Math.floor(Math.random() * max) + 1;
+      randomNumberResult.textContent = randomNumber;
     });
   </script>
 </body>
