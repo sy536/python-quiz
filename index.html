@@ -7,15 +7,16 @@
   <style>
     body { font-family: sans-serif; background: #f9fafb; color: #111; margin: 0; padding: 20px; }
     .container { max-width: min(1280px, 95vw); margin: auto; }
-    .panel { margin-bottom: 20px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
+    .panel { margin-bottom: 20px; padding: 20px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
     .card { padding: 20px; background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; }
     .q { font-size: 20px; margin-bottom: 10px; }
     .feedback { font-weight: bold; margin-top: 10px; }
     .good { color: green; }
     .bad { color: red; }
     .stats { margin-top: 10px; color: #555; }
-    input[type="text"] { padding: 8px; width: calc(100% - 100px); margin-right: 10px; }
-    button { padding: 8px 12px; }
+    input[type="text"] { padding: 8px; width: calc(100% - 100px); margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; background-color: #f0f0f0; cursor: pointer; }
+    button:hover { background-color: #e0e0e0; }
     .empty-msg { margin-top: 15px; font-size: 16px; color: #333; }
     .summary { margin-top: 15px; font-size: 14px; color: #333; }
     .summary ul { padding-left: 20px; }
@@ -50,17 +51,19 @@
     border: 1px solid #ccc;
     box-sizing: border-box;
     resize: vertical;
+    border-radius: 4px;
   }
   .csv-editor-table textarea {
     min-height: 100px;
     overflow: hidden;
   }
   .csv-editor-table .cell-priority { width: 50px; }
-  .edit-button-red { background-color: #f44336; color: white; }
+  .edit-button-red { background-color: #f44336; color: white; border-color: #f44336; }
   .edit-button-red:hover { background-color: #d32f2f; }
   .edit-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
   .start-btn-green { background-color: #4CAF50; color: white; border: none; }
   .start-btn-green:hover { background-color: #45a049; }
+  .start-btn-green:disabled { background-color: #a5d6a7; cursor: not-allowed; }
   .csv-editor-table .question-preview,
   #editFields .question-preview {
     max-height: 100px;
@@ -89,9 +92,22 @@
   <div class="container">
     <div id="main-panel" class="panel">
       <input id="file" type="file" accept=".csv,text/csv" />
-      <button id="startBtn" class="start-btn-green" disabled>Start Quiz</button>
       <button id="editCsvBtn" style="display:none">Edit CSV</button>
       <div id="meta">No file loaded.</div>
+
+      <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+            <div>
+                <label for="startBtn" style="display: block; margin-bottom: 5px;"><strong>Standard Quiz</strong> (uses category filters)</label>
+                <button id="startBtn" class="start-btn-green" disabled>Start Standard Quiz</button>
+            </div>
+            <div>
+                <label for="numCards" style="display: block; margin-bottom: 5px;"><strong>Priority Quiz</strong> (top N cards)</label>
+                <input type="number" id="numCards" value="25" min="1" style="width: 70px; padding: 8px; vertical-align: middle; border: 1px solid #ccc; border-radius: 4px;">
+                <button id="priorityQuizBtn" class="start-btn-green" disabled>Start Priority Quiz</button>
+            </div>
+        </div>
+      </div>
     </div>
     
     <div id="category-panel" class="panel" style="display:none">
@@ -145,7 +161,7 @@
         <button id="addCardBtn">Add New Card</button>
         <button id="sortCategoryBtn">Sort by Category</button>
         <button id="saveAndDownloadBtn">Save & Download</button>
-        <button id="cancelEditBtn">Save & Back to Quiz</button>
+        <button id="cancelEditBtn">Save & Back to Main</button>
       </div>
     </div>
 
@@ -196,6 +212,8 @@
     const categoryFiltersEl = $('category-filters');
     const toggleAllBtn = $('toggle-all-btn');
     const toggleNoneBtn = $('toggle-none-btn');
+    const numCardsInput = $('numCards');
+    const priorityQuizBtn = $('priorityQuizBtn');
     
     const quizPanel = $('quiz-panel');
     const questionEl = $('question');
@@ -257,7 +275,7 @@
       return s.replace(/\s+/g, '');
     }
 
-    // Pick a card based on its priority
+    // Pick a card based on its priority using an exponential distribution
     function pickNextCard() {
       if (!unused.length) return null;
 
@@ -348,7 +366,8 @@
         const mistakeIds = new Set(incorrectLog.map(log => log.id));
         const updatedCards = cards.map(card => {
           if (mistakeIds.has(card.id)) {
-            card.priority *= 2;
+            // Exponential backoff for incorrect answers
+            card.priority = Math.min(1024, card.priority * 2);
           }
           return card;
         });
@@ -401,6 +420,7 @@
       if (emptyMsg) emptyMsg.style.display = 'none';
       if (summaryEl) summaryEl.style.display = 'none';
       showCard(pickNextCard());
+      updateStats();
     }
 
     function onSubmit() {
@@ -414,12 +434,15 @@
         roundCorrect++;
         feedbackEl.textContent = 'Correct!';
         feedbackEl.className = 'feedback good';
+        // Decrease priority for correct answers
         current.priority = Math.max(1, current.priority - 1);
         nextCard(); // Move to the next card immediately
       } else {
         state.streak = 0;
         feedbackEl.textContent = `Incorrect. Expected: ${current.a}`;
         feedbackEl.className = 'feedback bad';
+        // Increase priority for incorrect answers
+        current.priority = Math.min(1024, current.priority * 2);
         incorrectLog.push({ id: current.id, q: current.q, a: current.a, given: user });
         setTimeout(nextCard, 4000); // Wait 4 seconds before moving on
       }
@@ -481,10 +504,14 @@
     function loadFromText(text, name='file') {
       fileName = name;
       const rows = parseCSV(text);
-      cards = rows.map((r, idx) => ({ 
+      // Check for header row and skip it
+      const hasHeader = rows[0] && ['question', 'answer', 'category', 'priority'].includes(rows[0][0]?.toLowerCase().trim().replace(/"/g, ''));
+      const dataRows = hasHeader ? rows.slice(1) : rows;
+
+      cards = dataRows.map((r, idx) => ({ 
         id: idx, 
-        q: String(r[0]).trim(), 
-        a: String(r[1]).trim(), 
+        q: String(r[0] || '').trim(), 
+        a: String(r[1] || '').trim(), 
         category: r[2] ? String(r[2]).trim() : 'Uncategorized', 
         priority: (r[3] && !isNaN(parseFloat(r[3]))) ? parseFloat(r[3]) : 1 
       })).filter(x => x.q && x.a);
@@ -497,6 +524,7 @@
       lastRoundMistakeIds = [];
       meta.textContent = cards.length ? `Loaded ${cards.length} cards from ${name}` : 'No valid rows found.';
       editCsvBtn.style.display = cards.length > 0 ? 'inline' : 'none';
+      priorityQuizBtn.disabled = cards.length === 0;
       
       roundCorrect = 0;
       roundAttempts = 0;
@@ -510,8 +538,9 @@
       const rows = document.querySelectorAll('#editorTable table tbody tr');
       rows.forEach((row, index) => {
           const inputs = row.querySelectorAll('textarea, input');
+          const originalCard = cards[index] || { id: index };
           const updatedCard = {
-              id: cards[index].id,
+              id: originalCard.id,
               q: inputs[0].value,
               a: inputs[1].value,
               category: inputs[2].value,
@@ -542,87 +571,51 @@
       cards.forEach((card, index) => {
         const row = tbody.insertRow();
         
-        // Question cell with input
         const questionCell = row.insertCell();
         const questionInput = document.createElement('textarea');
         questionInput.value = card.q;
-        questionInput.dataset.index = index;
-        questionInput.dataset.field = 'q';
-        questionInput.className = 'editor-q';
+        questionInput.addEventListener('input', () => autoResizeTextarea(questionInput));
         questionCell.appendChild(questionInput);
-        autoResizeTextarea(questionInput); // Set initial height
         
-        // Preview cell
         const previewCell = row.insertCell();
         const previewDiv = document.createElement('div');
         previewDiv.className = 'question-preview';
-        previewDiv.innerHTML = marked.parse(card.q);
-        if (typeof renderMathInElement !== 'undefined') {
-            renderMathInElement(previewDiv, {
-                delimiters: [
-                    {left: "$$", right: "$$", display: true},
-                    {left: "$", right: "$", display: false}
-                ]
-            });
-        }
+        const renderPreview = () => {
+            previewDiv.innerHTML = marked.parse(questionInput.value);
+            if (typeof renderMathInElement !== 'undefined') {
+                renderMathInElement(previewDiv, { delimiters: [{left: "$$", right: "$$", display: true}, {left: "$", right: "$", display: false}] });
+            }
+        };
+        questionInput.addEventListener('input', renderPreview);
         previewCell.appendChild(previewDiv);
 
-        // Live preview on input
-        questionInput.addEventListener('input', () => {
-          previewDiv.innerHTML = marked.parse(questionInput.value);
-          if (typeof renderMathInElement !== 'undefined') {
-              renderMathInElement(previewDiv, {
-                  delimiters: [
-                      {left: "$$", right: "$$", display: true},
-                      {left: "$", right: "$", display: false}
-                  ]
-              });
-          }
-          autoResizeTextarea(questionInput); // Auto-resize on input
-        });
-
-        // Answer, Category, Priority cells
         const answerCell = row.insertCell();
         const answerInput = document.createElement('textarea');
         answerInput.value = card.a;
-        answerInput.dataset.index = index;
-        answerInput.dataset.field = 'a';
+        answerInput.addEventListener('input', () => autoResizeTextarea(answerInput));
         answerCell.appendChild(answerInput);
         
         const categoryCell = row.insertCell();
         const categoryInput = document.createElement('textarea');
         categoryInput.value = card.category;
-        categoryInput.dataset.index = index;
-        categoryInput.dataset.field = 'category';
+        categoryInput.addEventListener('input', () => autoResizeTextarea(categoryInput));
         categoryCell.appendChild(categoryInput);
         
         const priorityCell = row.insertCell();
         const priorityControls = document.createElement('div');
         priorityControls.className = 'priority-controls';
-        
         const minusBtn = document.createElement('button');
         minusBtn.textContent = '-';
-        minusBtn.onclick = () => {
-          const input = priorityControls.querySelector('input');
-          input.value = Math.max(1, parseInt(input.value) - 1);
-        };
-        priorityControls.appendChild(minusBtn);
-
         const priorityInput = document.createElement('input');
+        minusBtn.onclick = () => { priorityInput.value = Math.max(1, parseInt(priorityInput.value) - 1); };
+        priorityControls.appendChild(minusBtn);
         priorityInput.type = 'number';
         priorityInput.value = card.priority;
-        priorityInput.dataset.index = index;
-        priorityInput.dataset.field = 'priority';
         priorityControls.appendChild(priorityInput);
-
         const plusBtn = document.createElement('button');
         plusBtn.textContent = '+';
-        plusBtn.onclick = () => {
-          const input = priorityControls.querySelector('input');
-          input.value = parseInt(input.value) + 1;
-        };
+        plusBtn.onclick = () => { priorityInput.value = parseInt(priorityInput.value) + 1; };
         priorityControls.appendChild(plusBtn);
-        
         priorityCell.appendChild(priorityControls);
         
         const actionCell = row.insertCell();
@@ -630,6 +623,14 @@
         deleteBtn.textContent = 'Delete';
         deleteBtn.onclick = () => deleteCard(index);
         actionCell.appendChild(deleteBtn);
+
+        // Set initial sizes and previews
+        setTimeout(() => {
+          autoResizeTextarea(questionInput);
+          autoResizeTextarea(answerInput);
+          autoResizeTextarea(categoryInput);
+          renderPreview();
+        }, 0);
       });
       editorTable.innerHTML = '';
       editorTable.appendChild(table);
@@ -637,33 +638,28 @@
     
     function addCard() {
       cards.push({
-        id: cards.length,
+        id: cards.length ? Math.max(...cards.map(c => c.id)) + 1 : 0,
         q: '',
         a: '',
         category: 'Uncategorized',
         priority: 1
       });
       renderEditorTable();
-      prepareDeck();
     }
     
     function sortCardsByCategory() {
         cards = getEditedCardsFromTable();
         cards.sort((a, b) => a.category.localeCompare(b.category));
         renderEditorTable();
-        prepareDeck();
     }
 
     function deleteCard(index) {
         cards.splice(index, 1);
-        cards.forEach((card, i) => card.id = i);
         renderEditorTable();
-        prepareDeck();
     }
 
     function saveAndDownloadEditedCSV() {
-        const updatedCards = getEditedCardsFromTable();
-        cards = updatedCards;
+        cards = getEditedCardsFromTable();
         downloadCSV(cards);
         prepareDeck();
         showPanel(mainPanel);
@@ -680,6 +676,41 @@
 
     startBtn.addEventListener('click', () => {
       if (!unused.length) return;
+      // Reset quiz state before starting
+      roundCorrect = 0;
+      roundAttempts = 0;
+      incorrectLog = [];
+      if (summaryEl) summaryEl.style.display = 'none';
+      if (emptyMsg) emptyMsg.style.display = 'none';
+      showPanel(quizPanel);
+      nextCard();
+      answerEl.focus();
+    });
+
+    priorityQuizBtn.addEventListener('click', () => {
+      if (!cards.length) return;
+
+      const n = parseInt(numCardsInput.value, 10);
+      if (isNaN(n) || n <= 0) {
+        meta.textContent = "Please enter a valid number of cards for the priority quiz.";
+        return;
+      }
+      
+      // Reset quiz state before starting
+      roundCorrect = 0;
+      roundAttempts = 0;
+      incorrectLog = [];
+      if (summaryEl) summaryEl.style.display = 'none';
+      if (emptyMsg) emptyMsg.style.display = 'none';
+
+      // Create a deck with the top N priority cards
+      const topNCards = [...cards]
+        .sort((a, b) => b.priority - a.priority)
+        .slice(0, n);
+
+      unused = topNCards;
+      
+      // Start the quiz
       showPanel(quizPanel);
       nextCard();
       answerEl.focus();
@@ -694,6 +725,9 @@
     sortCategoryBtn.addEventListener('click', sortCardsByCategory);
     saveAndDownloadBtn.addEventListener('click', saveAndDownloadEditedCSV);
     cancelEditBtn.addEventListener('click', () => {
+      cards = getEditedCardsFromTable();
+      prepareDeck();
+      renderCategoryFilters();
       showPanel(mainPanel);
     });
 
@@ -711,12 +745,7 @@
       // Render initial preview for the edit view
       editQuestionPreview.innerHTML = marked.parse(editQuestionEl.value);
       if (typeof renderMathInElement !== 'undefined') {
-        renderMathInElement(editQuestionPreview, {
-            delimiters: [
-                {left: "$$", right: "$$", display: true},
-                {left: "$", right: "$", display: false}
-            ]
-        });
+        renderMathInElement(editQuestionPreview, { delimiters: [{left: "$$", right: "$$", display: true}, {left: "$", right: "$", display: false}] });
       }
       if (submitBtn) submitBtn.style.display = 'none';
       if (skipBtn) skipBtn.style.display = 'none';
@@ -726,12 +755,7 @@
     editQuestionEl.addEventListener('input', () => {
         editQuestionPreview.innerHTML = marked.parse(editQuestionEl.value);
         if (typeof renderMathInElement !== 'undefined') {
-            renderMathInElement(editQuestionPreview, {
-                delimiters: [
-                    {left: "$$", right: "$$", display: true},
-                    {left: "$", right: "$", display: false}
-                ]
-            });
+            renderMathInElement(editQuestionPreview, { delimiters: [{left: "$$", right: "$$", display: true}, {left: "$", right: "$", display: false}] });
         }
     });
     updateCardBtn.addEventListener('click', () => {
@@ -770,3 +794,4 @@
   </script>
 </body>
 </html>
+
