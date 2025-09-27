@@ -140,3 +140,11 @@
 "Y or N: `mat` is a `mxn` array. `mat[0][:3] = [1,2,3]` updates `mat`.","Y","List",1
 "`list(range(l,r))` has how many elements?","r-l","Index Gymnastics",1
 "Slice of last `k` elements of list `l`. Use negative indexing","l[-k:]","List",2
+"Get the `k` most common elements from counter `c`","[e for e,_ in c.most_common(k)]","Counter",1
+"Import the random module","import random ","Random",1
+"Random `float` in `[0,1)`","random.random()","Random",1
+"Random `float` in `[a,b]`","random.uniform(a,b)","Random",1
+"Random `int` in `[a,b]`","random.randint(a,b)","Random",1
+"Random element from sequence `s`","random.choice(s)","Random",1
+"List of `k` unique elements without replacement from sequence `s`","random.sample(s, k)  ","Random",1
+"In place random permutation of sequence `s`","random.shuffle(s) ","Random",1
