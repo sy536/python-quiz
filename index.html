@@ -13,6 +13,7 @@
     .feedback { font-weight: bold; margin-top: 10px; }
     .good { color: green; }
     .bad { color: red; }
+    .superfluous { color: blue; }
     .stats { margin-top: 10px; color: #555; }
     input[type="text"] { padding: 8px; width: calc(100% - 100px); margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; }
     button { padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; background-color: #f0f0f0; cursor: pointer; }
@@ -423,6 +424,41 @@
       updateStats();
     }
 
+    function diffChars(a, b) { // a = user, b = correct
+      const matrix = Array(a.length + 1).fill(0).map(() => Array(b.length + 1).fill(0));
+
+      for (let i = 1; i <= a.length; i++) {
+          for (let j = 1; j <= b.length; j++) {
+              if (a[i - 1] === b[j - 1]) {
+                  matrix[i][j] = matrix[i - 1][j - 1] + 1;
+              } else {
+                  matrix[i][j] = Math.max(matrix[i - 1][j], matrix[i][j - 1]);
+              }
+          }
+      }
+
+      let i = a.length;
+      let j = b.length;
+      const result = [];
+      
+      while (i > 0 || j > 0) {
+          if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+              result.unshift({ value: a[i - 1], type: 'common' });
+              i--;
+              j--;
+          } else if (j > 0 && (i === 0 || matrix[i][j - 1] >= matrix[i - 1][j])) {
+              result.unshift({ value: b[j - 1], type: 'added' }); // In correct, not user
+              j--;
+          } else if (i > 0 && (j === 0 || matrix[i][j - 1] < matrix[i - 1][j])) {
+              result.unshift({ value: a[i - 1], type: 'removed' }); // In user, not correct
+              i--;
+          } else {
+              break;
+          }
+      }
+      return result;
+    }
+
     function onSubmit() {
       if (!current) return;
       const user = answerEl.value;
@@ -439,8 +475,42 @@
         nextCard(); // Move to the next card immediately
       } else {
         state.streak = 0;
-        feedbackEl.textContent = `Incorrect. Expected: ${current.a}`;
-        feedbackEl.className = 'feedback bad';
+        
+        const diffResult = diffChars(user, current.a);
+        const hasAdded = diffResult.some(part => part.type === 'added');
+        const hasRemoved = diffResult.some(part => part.type === 'removed');
+
+        let feedbackPrefix;
+        let diffHtml;
+
+        if (hasRemoved && !hasAdded) {
+            // Superset case: user's answer contains the correct answer plus extra characters.
+            feedbackPrefix = "Incorrect. Your answer had extra characters: ";
+            diffHtml = diffResult.map(part => {
+                const value = part.value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                if (part.type === 'common') {
+                    return `<span>${value}</span>`;
+                } else { // 'removed'
+                    return `<span class="superfluous" style="text-decoration: underline;">${value}</span>`;
+                }
+            }).join('');
+        } else {
+            // Subset or mixed diff case: show the expected answer with missing parts.
+            feedbackPrefix = "Incorrect. Expected: ";
+            diffHtml = diffResult.map(part => {
+                const value = part.value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                if (part.type === 'common') {
+                    return `<span>${value}</span>`;
+                } else if (part.type === 'added') {
+                    return `<span class="bad" style="text-decoration: underline;">${value}</span>`;
+                }
+                return ''; // Ignore 'removed' parts for this view
+            }).join('');
+        }
+        
+        feedbackEl.innerHTML = feedbackPrefix + diffHtml;
+        feedbackEl.className = 'feedback';
+
         // Increase priority for incorrect answers
         current.priority = Math.min(1024, current.priority * 2);
         incorrectLog.push({ id: current.id, q: current.q, a: current.a, given: user });
