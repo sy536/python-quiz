@@ -150,6 +150,7 @@
         </div>
       </div>
       <div class="feedback" id="feedback"></div>
+      <div id="end-quiz-confirm" style="display:none; color: #d97706; font-weight: bold; margin-top: 10px;"></div>
       <div class="hint">Hotkeys: <kbd>Enter</kbd> to check • <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to skip • <kbd>Shift</kbd> + <kbd>Enter</kbd> to end &amp; summary</div>
       <div class="empty-msg" id="emptyMsg" style="display:none"></div>
     <div class="summary" id="summary" style="display:none"></div>
@@ -220,6 +221,7 @@
     const questionEl = $('question');
     const answerEl = $('answer');
     const feedbackEl = $('feedback');
+    const endQuizConfirmEl = $('end-quiz-confirm');
     const submitBtn = $('submitBtn');
     const skipBtn = $('skipBtn');
     const editQuestionBtn = $('editQuestionBtn');
@@ -245,7 +247,8 @@
     let current = null;
     let unused = [];
     let fileName = 'updated_quiz_deck.csv';
-    let isPaused = false; 
+    let isPaused = false;
+    let endQuizConfirmation = false;
 
     let incorrectLog = [];
     let lastRoundMistakeIds = [];
@@ -412,7 +415,15 @@
       }
     }
 
+    function resetEndConfirmation() {
+        if (endQuizConfirmation) {
+            endQuizConfirmation = false;
+            endQuizConfirmEl.style.display = 'none';
+        }
+    }
+
     function nextCard() {
+      resetEndConfirmation();
       if (isPaused) return; 
       if (!unused.length) {
         if (questionEl) questionEl.textContent = '';
@@ -462,6 +473,7 @@
     }
 
     function onSubmit() {
+      resetEndConfirmation();
       if (!current || isPaused) return; 
       const user = answerEl.value;
       const ok = normalizeForCompare(user) === normalizeForCompare(current.a);
@@ -765,6 +777,7 @@
       roundCorrect = 0;
       roundAttempts = 0;
       incorrectLog = [];
+      resetEndConfirmation();
       if (summaryEl) summaryEl.style.display = 'none';
       if (emptyMsg) emptyMsg.style.display = 'none';
       showPanel(quizPanel);
@@ -785,6 +798,7 @@
       roundCorrect = 0;
       roundAttempts = 0;
       incorrectLog = [];
+      resetEndConfirmation();
       if (summaryEl) summaryEl.style.display = 'none';
       if (emptyMsg) emptyMsg.style.display = 'none';
 
@@ -866,11 +880,24 @@
       // Shift + Enter -> End quiz early & show summary
       if (e.key === 'Enter' && e.shiftKey) {
         e.preventDefault();
-        if (questionEl) questionEl.textContent = '';
-        if (feedbackEl) feedbackEl.textContent = '';
-        endOfRound();
+        if (endQuizConfirmation) {
+          resetEndConfirmation();
+          if (questionEl) questionEl.textContent = '';
+          if (feedbackEl) feedbackEl.textContent = '';
+          endOfRound();
+        } else {
+          endQuizConfirmation = true;
+          endQuizConfirmEl.textContent = 'Are you sure? Press Shift + Enter again to end the quiz.';
+          endQuizConfirmEl.style.display = 'block';
+        }
         return;
       }
+
+      // If we are in a confirmation state and another key is pressed, cancel it.
+      if (endQuizConfirmation && e.key !== 'Shift') {
+          resetEndConfirmation();
+      }
+
       // Ctrl/Cmd + Enter -> Skip
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); nextCard(); return; }
       // Enter -> Check
@@ -879,4 +906,3 @@
   </script>
 </body>
 </html>
-
