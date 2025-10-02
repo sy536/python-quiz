@@ -635,9 +635,9 @@
       const rows = document.querySelectorAll('#editorTable table tbody tr');
       rows.forEach((row, index) => {
           const inputs = row.querySelectorAll('textarea, input');
-          const originalCard = cards[index] || { id: index };
+          const id = row.dataset.id ? parseInt(row.dataset.id, 10) : (cards[index] ? cards[index].id : index);
           const updatedCard = {
-              id: originalCard.id,
+              id: id,
               q: inputs[0].value,
               a: inputs[1].value,
               category: inputs[2].value,
@@ -667,6 +667,7 @@
       const tbody = table.createTBody();
       cards.forEach((card, index) => {
         const row = tbody.insertRow();
+        row.dataset.id = card.id;
         
         const questionCell = row.insertCell();
         const questionInput = document.createElement('textarea');
@@ -718,7 +719,7 @@
         const actionCell = row.insertCell();
         const deleteBtn = document.createElement('button');
         deleteBtn.textContent = 'Delete';
-        deleteBtn.onclick = () => deleteCard(index);
+        deleteBtn.onclick = () => deleteCard(card.id);
         actionCell.appendChild(deleteBtn);
 
         // Set initial sizes and previews
@@ -734,6 +735,7 @@
     }
     
     function addCard() {
+      cards = getEditedCardsFromTable();
       cards.push({
         id: cards.length ? Math.max(...cards.map(c => c.id)) + 1 : 0,
         q: '',
@@ -750,8 +752,9 @@
         renderEditorTable();
     }
 
-    function deleteCard(index) {
-        cards.splice(index, 1);
+    function deleteCard(idToDelete) {
+        cards = getEditedCardsFromTable();
+        cards = cards.filter(card => card.id !== idToDelete);
         renderEditorTable();
     }
 
@@ -906,3 +909,4 @@
   </script>
 </body>
 </html>
+
