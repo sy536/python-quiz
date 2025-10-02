@@ -245,6 +245,7 @@
     let current = null;
     let unused = [];
     let fileName = 'updated_quiz_deck.csv';
+    let isPaused = false; 
 
     let incorrectLog = [];
     let lastRoundMistakeIds = [];
@@ -412,6 +413,7 @@
     }
 
     function nextCard() {
+      if (isPaused) return; 
       if (!unused.length) {
         if (questionEl) questionEl.textContent = '';
         if (feedbackEl) feedbackEl.textContent = '';
@@ -460,7 +462,7 @@
     }
 
     function onSubmit() {
-      if (!current) return;
+      if (!current || isPaused) return; 
       const user = answerEl.value;
       const ok = normalizeForCompare(user) === normalizeForCompare(current.a);
       state.attempts++;
@@ -474,6 +476,11 @@
         current.priority = Math.max(1, current.priority - 1);
         nextCard(); // Move to the next card immediately
       } else {
+        isPaused = true;
+        answerEl.disabled = true;
+        submitBtn.disabled = true;
+        skipBtn.disabled = true;
+
         state.streak = 0;
         
         const diffResult = diffChars(user, current.a);
@@ -514,7 +521,15 @@
         // Increase priority for incorrect answers
         current.priority = Math.min(1024, current.priority * 2);
         incorrectLog.push({ id: current.id, q: current.q, a: current.a, given: user });
-        setTimeout(nextCard, 4000); // Wait 4 seconds before moving on
+        
+        setTimeout(() => {
+            isPaused = false;
+            answerEl.disabled = false;
+            submitBtn.disabled = false;
+            skipBtn.disabled = false;
+            nextCard();
+            answerEl.focus();
+        }, 4000); // Wait 4 seconds before moving on
       }
       updateStats();
     }
