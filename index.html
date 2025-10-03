@@ -368,15 +368,7 @@
       summaryEl.innerHTML = html;
       summaryEl.style.display = '';
       document.getElementById('downloadMistakesBtn').onclick = () => {
-        const mistakeIds = new Set(incorrectLog.map(log => log.id));
-        const updatedCards = cards.map(card => {
-          if (mistakeIds.has(card.id)) {
-            // Exponential backoff for incorrect answers
-            card.priority = Math.min(1024, card.priority * 2);
-          }
-          return card;
-        });
-        downloadCSV(updatedCards);
+        downloadCSV(cards);
       };
     }
 
@@ -909,4 +901,3 @@
   </script>
 </body>
 </html>
-
